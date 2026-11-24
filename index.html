@@ -197,6 +197,7 @@ input.datepick{cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xml
       <p class="hint" style="margin-top:8px">Flight results come straight from Kiwi.com (no AI suggestions). Airport data: OpenFlights (ODbL).</p>
       <p class="hint" style="margin-top:8px">Shabbat and Yom Tov times follow Chabad.org's method — candles 18 min before sunset (or the city's Chabad custom), Shabbat ends when the sun is 8.5° below the horizon — calculated for the city centre, with Israel vs. diaspora holiday days handled. Expect ±1 min vs. Chabad.org; tap “Chabad.org” on any time to see their official listing. AI-suggested flights are based on typical schedules — always confirm the final itinerary and price via the booking links.</p>
     </form>
+    <div class="card" style="max-width:640px"><h2>Hilton brands to include</h2><p class="hint">Tap to toggle. Applies to new hotel searches.</p><div class="chips" id="brandChips"></div></div>
     <div class="card standalone-only hidden" style="max-width:640px;margin-top:16px">
       <h2>Cloud helper (live flights + sync)</h2>
       <p class="hint">Your free Cloudflare helper from the setup steps. It brings live Kiwi.com flights into this page and syncs your trips between phone and PC. Stored only on this device.</p>
@@ -1015,7 +1016,6 @@ function renderHotels(){
   const el=$("#hotels");
   const stops=(trip.stops||[]).map(s=>({s,i:s.key})).filter(x=>x.s.code);
   if(!stops.length){ el.innerHTML=""; return; }
-  const brandChips=HILTON_BRANDS.map(b=>`<button class="chip ${S.brands.includes(b)?"on":""}" data-act="brand" data-b="${esc(b)}">${esc(b)}</button>`).join("");
   el.innerHTML=stops.map(({s,i})=>{
     if(!s.need) return s.why==="Home"?"":`<div class="card"><div class="leghead"><div class="route">🏨 ${esc(cityOf(s.code))}</div>${s.checkin?`<span class="pill gray">${dayLabel(s.checkin)}</span>`:""}</div><div class="note">${esc(s.why)}</div></div>`;
     const L=apt(s.code); const st=trip.hotels[i]||{}; const b=busy["h"+i];
@@ -1038,7 +1038,7 @@ function renderHotels(){
       <div class="btns ${hotelSource()?"":"hidden"}"><button class="btn primary" data-act="aihotels" data-i="${esc(i)}" ${b?"disabled":""}>${b?`<span class="spinner"></span> Searching…`:st.results?"↻ Refresh Hilton hotels":"⚡ Find Hilton hotels"}</button></div>
       <div class="links">${hotelLinks(s).map(([n,u])=>`<a class="btn small" target="_blank" rel="noopener" href="${u}">${esc(n)} ↗</a>`).join("")}</div>
       ${res}</div>`;
-  }).join("")+`<div class="card"><h2>Hilton brands to include</h2><p class="hint">Tap to toggle. Applies to new hotel searches.</p><div class="chips">${brandChips}</div></div>`;
+  }).join("");
 }
 function renderSummary(){
   const legs=computeLegs(trip); const lines=[];
@@ -1065,7 +1065,8 @@ function renderTrips(){
     <div style="display:flex;gap:6px"><button class="btn small" data-act="open" data-id="${t.id}">Open</button><button class="btn small ghost danger" data-act="del" data-id="${t.id}">Delete</button></div></div>`; }).join(""):`<div class="empty">No saved trips yet. Plan one and tap “Save trip”.</div>`;
   $("#storeNote").textContent= col?"Trips sync to your Claude account — they're available on your phone and PC.":(STANDALONE?"Trips are stored in this browser only — set up the cloud helper in Settings to sync phone ↔ PC.":"Trips are stored in this browser only (sign in to Claude to sync across devices).");
 }
-function renderSettings(){
+function renderBrandChips(){ const el=$("#brandChips"); if(el) el.innerHTML=HILTON_BRANDS.map(b=>`<button type="button" class="chip ${S.brands.includes(b)?"on":""}" data-act="brand" data-b="${esc(b)}">${esc(b)}</button>`).join(""); }
+function renderSettings(){ renderBrandChips();
   $("#sHome").value=aptLabel(S.home); $("#sPref").value=S.prefAirlines.join(", "); $("#sBufB").value=S.bufBefore; $("#sBufA").value=S.bufAfter; $("#sConn").value=S.minConn; $("#sCandle").value=S.candleMin; $("#sHav").value=S.havdalah; $("#sCabin").value=S.cabin; $("#sChabadLocal").checked=S.chabadLocal!==false; $("#sTLV").value=S.airportTLV; $("#sAbroad").value=S.airportAbroad; $("#sDrive").value=S.driveMin; $("#sLCC").checked=!!S.includeLCC; $("#sBags").value=S.bags; $("#sSelfT").value=S.selfTransferMin; $("#sCheaper").value=S.cheaperByUSD; $("#sRadius").value=S.hotelRadiusKm;
 }
 function readSettings(){
@@ -1125,7 +1126,11 @@ document.addEventListener("click",async e=>{
   if(b.dataset.tab){ show(b.dataset.tab); return; }
   const act=b.dataset.act, key=b.dataset.leg;
   const leg=key?computeLegs(trip).find(l=>l.key===key):null;
-  if(act==="addflight"){ readForm(); const last=trip.flights[trip.flights.length-1]; trip.flights.push({from:last?.to||"",to:"",date:""}); deriveTrip(trip); renderForm(); renderPlan(); }
+  if(act==="addflight"){ readForm(); const F=trip.flights, last=F[F.length-1], home=F[0]?.from||S.home;
+    if(F.length>=2 && last && last.to===home){ // keep the flight home last: insert the new stop before it
+      F.splice(F.length-1,0,{from:last.from||F[F.length-2]?.to||"",to:"",date:""}); last.from=""; }
+    else F.push({from:last?.to||"",to:"",date:""});
+    deriveTrip(trip); renderForm(); renderPlan(); }
   if(act==="addreturn"){ readForm(); const last=trip.flights[trip.flights.length-1]; trip.flights.push({from:last?.to||"",to:trip.flights[0]?.from||S.home,date:""}); deriveTrip(trip); renderForm(); renderPlan(); }
   if(act==="rmflight"){ readForm(); trip.flights.splice(+b.dataset.i,1); deriveTrip(trip); renderForm(); renderPlan(); scheduleAuto(); }
   if(act==="togglemanual"){ const m=document.getElementById("man-"+key); m.classList.toggle("hidden"); if(!draftSegs[key]){ draftSegs[key]=[{flight:"",from:leg.from,to:leg.to,dep:leg.date+"T",arr:""}]; draftSegs[key][0].dep=""; } renderSegEditor(leg); }
