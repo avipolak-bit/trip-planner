@@ -61,7 +61,7 @@ details.group{margin-top:12px}details.group summary{cursor:pointer;font-weight:6
 .trip b{display:block}.trip small{color:var(--muted)}
 .banner{font-size:13px;padding:10px 12px;border-radius:10px;background:var(--warnbg);color:var(--warn);margin-bottom:12px}
 .banner.info{background:var(--brand2);color:#1b3a8f}
-.summary{display:flex;flex-direction:column;gap:6px;font-size:14px}.summary .it{display:flex;gap:8px;align-items:baseline}.summary .it b{min-width:70px}
+.summary{display:flex;flex-direction:column;gap:6px;font-size:14px}.summary .it{display:flex;gap:8px;align-items:baseline}.summary .it b{min-width:70px;white-space:nowrap;flex:none}
 .hidden{display:none!important}
 @media(max-width:640px){header nav{display:none}.mobnav{display:flex!important}main{padding:12px}.row3{grid-template-columns:1fr 1fr}}
 .mobnav{display:none;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:16;padding-bottom:env(safe-area-inset-bottom)}
@@ -135,6 +135,11 @@ input.datepick{cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xml
 .tchip b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}.tchip small{font-size:12px;color:var(--muted)}
 .tchip.on{border-color:var(--brand);box-shadow:0 0 0 2px #1f4fd133}.tchip.add{border-style:dashed;color:var(--brand)}.tchip.add b{color:var(--brand)}
 .trip small{display:block}.trip.cur{border-color:var(--brand)}
+
+.pkg{border-top:1px solid var(--line,#e3e8f0);padding-top:10px;margin-top:10px}.pkg summary{color:var(--ink);font-weight:400;font-size:14px;line-height:1.5}.pkg summary b{font-weight:700}
+details.times{margin-top:8px}details.times summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--brand)}
+.tpair{display:flex;align-items:center;gap:6px}.tpair input{flex:1;min-width:0}.tpair span{font-size:12px;color:var(--muted)}
+@media (max-width:600px){.row.tw{grid-template-columns:1fr!important;display:grid}}
 </style>
 </head>
 <body>
@@ -556,7 +561,7 @@ function aptLabel(c){ const a=apt(c); return a?`${c} — ${a.city}`:(c||""); }
 function computeLegs(t){
   migrateTrip(t);
   const fl=t.flights.filter(f=>f.from&&f.to);
-  const legs=fl.map((f,i)=>({from:f.from,to:f.to,date:f.date,ret:i===fl.length-1&&fl.length>1&&f.to===t.flights[0].from}));
+  const legs=fl.map((f,i)=>({from:f.from,to:f.to,date:f.date,ret:i===fl.length-1&&fl.length>1&&f.to===t.flights[0].from,dep:[f.depFrom||"",f.depTo||""],arr:[f.arrFrom||"",f.arrTo||""]}));
   legs.forEach(l=>l.key=`${l.from}-${l.to}-${l.date}`);
   return legs;
 }
@@ -664,24 +669,65 @@ function multiLinks(legs){
   const k=legs.map(l=>`${l.from}-${l.to}/${l.date}`).join("/");
   return [["Google Flights (multi-city)",`https://www.google.com/travel/flights?q=${enc(q)}`],["Kayak multi-city (LY/TG)",`https://www.kayak.com/flights/${k}?fs=airlines=${S.prefAirlines.join(",")}&sort=bestflight_a`],["Kayak multi-city (all)",`https://www.kayak.com/flights/${k}?sort=bestflight_a`],["El Al","https://www.elal.com/en/"],["Thai Airways","https://www.thaiairways.com/"]];
 }
+// ---------- preferred take-off / landing times (strict filter, local airport time) ----------
+function inWin(t,a,b){ if(!t) return true; if(!a&&!b) return true; if(a&&!b) return t>=a; if(!a&&b) return t<=b; return a<=b?(t>=a&&t<=b):(t>=a||t<=b); }
+function hasTimes(leg){ return !!(leg&&((leg.dep&&(leg.dep[0]||leg.dep[1]))||(leg.arr&&(leg.arr[0]||leg.arr[1])))); }
+function timeOk(o,leg){ if(!hasTimes(leg)) return true; const g=o.segments||[]; if(!g.length) return true;
+  return inWin(String(g[0].dep||"").slice(11,16),leg.dep[0],leg.dep[1]) && inWin(String(g[g.length-1].arr||"").slice(11,16),leg.arr[0],leg.arr[1]); }
+function winText(w,word){ const [a,b]=w||[]; return a&&b?`${word} ${a}–${b}`:a?`${word} after ${a}`:b?`${word} by ${b}`:""; }
+function timesText(leg){ return [winText(leg.dep,"Take off"),winText(leg.arr,"Land")].filter(Boolean).join(" · "); }
+function usable(leg,all){ return all.filter(o=>(S.includeLCC||!analyzeOption(o,S).lcc)&&timeOk(o,leg)); }
 function bestFor(leg){ // top-ranked Shabbat-safe live option for a leg
   const st=trip.legs[leg.key]; if(!st||!st.live) return null; const all=st.live.options;
-  const r=rankOptions(S.includeLCC?all:all.filter(o=>!analyzeOption(o,S).lcc),S); const x=r.pref[0]||r.highlighted[0]||r.hidden[0]; return x?{x,idx:all.indexOf(x.o)}:null;
+  const r=rankOptions(usable(leg,all),S); const x=r.pref[0]||r.highlighted[0]||r.hidden[0]; return x?{x,idx:all.indexOf(x.o)}:null;
 }
+// ---------- whole-trip packages: combine the live options of every flight ----------
+let tripPkgs=[];
+function legCands(leg){ const st=trip.legs[leg.key]; if(!st||!st.live) return [];
+  const all=st.live.options; const r=rankOptions(usable(leg,all),S);
+  let c=[...r.pref,...r.highlighted]; if(!c.length) c=r.hidden; return c; }
+function buildPackages(legs){
+  const C=legs.map(l=>legCands(l)); if(C.some(c=>!c.length)) return [];
+  // keep the search small: shrink each leg's candidate list until the combinations fit
+  let k=8; while(k>2 && C.reduce((n,c)=>n*Math.min(k,c.length),1)>6000) k--;
+  const CC=C.map(c=>c.slice(0,k)); const gap=(S.minConn||0)*3600000; const out=[];
+  const rec=(i,pick)=>{ if(i===CC.length){ out.push(pick.slice()); return; }
+    for(const x of CC[i]){ const prev=pick[i-1]; if(prev && x.a.depU < prev.a.arrU+gap) continue; pick.push(x); rec(i+1,pick); pick.pop(); } };
+  rec(0,[]); if(!out.length) return [];
+  const tot=c=>{ let price=0, priced=true, hours=0, score=0; c.forEach(x=>{ const p=priceMid(x.o); if(p) price+=p; else priced=false; hours+=x.a.totalH||0; score+=x.score||0; });
+    return {legs:c, price, priced, hours, score, pref:c.every(x=>x.a.preferred==="all"), sig:c.map(x=>JSON.stringify(x.o.segments)).join("|")}; };
+  const P=out.map(tot); const seen=new Set(); const res=[];
+  const add=(label,p)=>{ if(!p||seen.has(p.sig)) return; seen.add(p.sig); res.push({...p,label}); };
+  const byScore=[...P].sort((a,b)=>a.score-b.score);
+  add("Recommended",byScore[0]);
+  add("Quickest",[...P].sort((a,b)=>a.hours-b.hours||a.price-b.price)[0]);
+  add("Cheapest",[...P].filter(p=>p.priced).sort((a,b)=>a.price-b.price||a.hours-b.hours)[0]);
+  add("All "+(S.prefAirlines||[]).join("/"),[...P].filter(p=>p.pref).sort((a,b)=>a.score-b.score)[0]);
+  for(const p of byScore){ if(res.length>=6) break; add("Alternative",p); }
+  return res;
+}
+function pkgRows(p){ return p.legs.map(x=>{ const o=x.o,a=x.a,pr=normP(o.priceUSD); const f=o.segments[0], l=o.segments[o.segments.length-1];
+  return `<div class="it"><b>${esc(f.from)}→${esc(l.to)}</b><span>${esc(o.segments.map(s=>s.flight).join(" + "))} · ${fmtDT(a.depU,apt(f.from).tz)} → ${fmtDT(a.arrU,apt(l.to).tz)} · ${fmtH(a.totalH)}${pr?` · $${Math.round(pr.low||pr.high).toLocaleString()}`:""}${a.shabbat==="tight"?" ⚠":""}</span></div>`; }).join(""); }
 function multiCard(legs){
   if(legs.length<2 || legs.some(l=>!l.date||!apt(l.from)||!apt(l.to))) return "";
   const route=[legs[0].from,...legs.map(l=>l.to)].join(" → ");
-  const best=legs.map(l=>({l,b:bestFor(l)})); const have=best.filter(x=>x.b).length;
-  let total=0, hours=0; best.forEach(({b})=>{ if(b){ const p=normP(b.x.o.priceUSD); total+=p?(p.low||p.high||0):0; hours+=b.x.a.totalH||0; } });
-  const rows=best.map(({l,b})=>{ if(!b) return `<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span class="meta">${dayLabel(l.date)} · ${busy[l.key]?"searching…":"no Shabbat-safe live option yet"}</span></div>`;
-    const o=b.x.o,a=b.x.a,p=normP(o.priceUSD); const sel=trip.legs[l.key]&&trip.legs[l.key].selected&&JSON.stringify(trip.legs[l.key].selected.segments)===JSON.stringify(o.segments);
-    return `<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span>${esc(o.segments.map(s=>s.flight).join(" + "))} · ${fmtDT(a.depU,apt(o.segments[0].from).tz)} → ${fmtDT(a.arrU,apt(o.segments[o.segments.length-1].to).tz)} · ${fmtH(a.totalH)}${p?` · $${Math.round(p.low||p.high).toLocaleString()}`:""} ${sel?"✓":""}</span></div>`; }).join("");
+  tripPkgs=buildPackages(legs); const ref=tripPkgs[0];
+  const have=legs.filter(l=>legCands(l).length).length;
+  const chosenSig=legs.map(l=>JSON.stringify(trip.legs[l.key]?.selected?.segments||null)).join("|");
+  const cmp=p=>{ if(p===ref) return ""; const d=[]; const dh=ref.hours-p.hours, dp=p.price-ref.price;
+    if(Math.abs(dh)>=0.1) d.push(dh>0?`${fmtH(dh)} quicker`:`${fmtH(-dh)} slower`); if(p.priced&&ref.priced&&Math.abs(dp)>=1) d.push(dp<0?`$${Math.round(-dp).toLocaleString()} cheaper`:`+$${Math.round(dp).toLocaleString()}`);
+    return d.length?` · <span class="meta">${d.join(", ")} vs recommended</span>`:""; };
+  const pkgHtml=tripPkgs.map((p,i)=>{ const sel=p.sig===chosenSig;
+    const head=`<b>${esc(p.label)}</b> · ${p.priced?`$${Math.round(p.price).toLocaleString()}`:"price n/a"} · ${fmtH(p.hours)} travel · ${esc([...new Set(p.legs.flatMap(x=>x.o.segments.map(g=>g.carrier||String(g.flight||"").slice(0,2))))].join("/"))}${p.pref?" ✓":""}${cmp(p)}${sel?" · ✓ selected":""}`;
+    const body=`<div class="summary" style="margin-top:6px">${pkgRows(p)}</div><div class="btns"><button class="btn ${i===0?"primary":""} small" data-act="pickpkg" data-p="${i}">${sel?"✓ Selected":`Select these ${p.legs.length} flights`}</button></div>`;
+    return i===0?`<div class="pkg">${head}${body}</div>`:`<details class="group pkg"><summary>${head}</summary>${body}</details>`; }).join("");
+  let main;
+  if(tripPkgs.length) main=`<h3>Whole-trip options (${tripPkgs.length})</h3>${pkgHtml}<div class="note" style="margin-top:6px">Separate tickets per flight · totals include every flight · tap an option to see its flights.</div>`;
+  else if(have) main=`<div class="note" style="margin-top:6px">${have===legs.length?"No combination of the live flights connects in time — see each flight below.":`${have}/${legs.length} flights found so far…`}</div>`;
+  else main=!mcp?noSearchNote():`<div class="note" style="margin-top:6px">Each flight is searched live on Kiwi.com as soon as the trip is filled in.</div>`;
   return `<div class="card leg multi">
     <div class="leghead"><div class="route">Whole trip · ${legs.length>2?"multi-city":"round trip"} <span>${esc(route)}</span></div><span class="pill">${legs.length} flights</span></div>
-    ${have?`<h3>Best live option per flight</h3><div class="summary">${rows}</div>
-      <div class="note" style="margin-top:6px">${have===legs.length?`Total ≈ <b>$${Math.round(total).toLocaleString()}</b> · ${fmtH(hours)} total travel time (separate tickets)`:`${have}/${legs.length} flights found so far`}</div>
-      <div class="btns"><button class="btn primary small" data-act="pickbest">Select these ${have} flight${have>1?"s":""}</button></div>`
-      :(!mcp?noSearchNote():`<div class="note" style="margin-top:6px">Each flight is searched live on Kiwi.com as soon as the trip is filled in.</div>`)}
+    ${main}
     <div class="note" style="margin-top:8px">One multi-city ticket can be cheaper than separate flights — compare on:</div>
     <div class="links">${multiLinks(legs).map(([n,u])=>`<a class="btn small" target="_blank" rel="noopener" href="${u}">${esc(n)} ↗</a>`).join("")}</div></div>`;
 }
@@ -878,6 +924,10 @@ function renderForm(){
     <div class="row3 frow"><div><label>From</label><input list="apts" data-f="from" value="${esc(aptLabel(f.from))}" placeholder="TLV" autocomplete="off"></div>
      <div><label>To</label><input list="apts" data-f="to" value="${esc(aptLabel(f.to))}" placeholder="e.g. BKK" autocomplete="off"></div>
      <div><label>Date</label><input type="text" readonly class="datepick" placeholder="Pick a date" data-f="date" data-value="${esc(f.date)}" value="${esc(dateText(f.date))}"></div></div>
+    <details class="times" ${f.depFrom||f.depTo||f.arrFrom||f.arrTo?"open":""}><summary>⏰ Preferred take-off & landing times <span class="meta">(optional, local time)</span></summary>
+     <div class="row tw"><div><label>Take off between</label><div class="tpair"><input type="time" data-f="depFrom" value="${esc(f.depFrom||"")}"><span>and</span><input type="time" data-f="depTo" value="${esc(f.depTo||"")}"></div></div>
+      <div><label>Land between</label><div class="tpair"><input type="time" data-f="arrFrom" value="${esc(f.arrFrom||"")}"><span>and</span><input type="time" data-f="arrTo" value="${esc(f.arrTo||"")}"></div></div></div>
+     <p class="hint" style="margin:4px 0 0">Flights outside these times are hidden. Leave empty for any time. Times are local at each airport.</p></details>
    </div>`).join("");
   $("#addReturn").classList.toggle("hidden",!last||!last.to||last.to===home);
   $("#addReturn").textContent=`＋ Add flight home to ${home}`;
@@ -885,7 +935,8 @@ function renderForm(){
 function readForm(){
   trip.name=$("#tripName").value.trim();
   document.querySelectorAll("#flights .flight").forEach(el=>{ const f=trip.flights[+el.dataset.i]; if(!f) return;
-    f.from=codeOf(el.querySelector('[data-f="from"]').value); f.to=codeOf(el.querySelector('[data-f="to"]').value); f.date=getD(el.querySelector('[data-f="date"]')); });
+    f.from=codeOf(el.querySelector('[data-f="from"]').value); f.to=codeOf(el.querySelector('[data-f="to"]').value); f.date=getD(el.querySelector('[data-f="date"]'));
+    ["depFrom","depTo","arrFrom","arrTo"].forEach(k=>{ const x=el.querySelector(`[data-f="${k}"]`); if(x) f[k]=x.value||""; }); });
   deriveTrip(trip);
 }
 async function onFormChange(e){
@@ -957,11 +1008,14 @@ function renderLegs(){
     if(!A||!B||!leg.date) return `<div class="card"><div class="leghead"><div class="route">${esc(leg.from)} → ${esc(leg.to)}</div></div><div class="empty">${!leg.date?"Set the travel date for this leg.":"Unknown airport — pick one from the list."}</div></div>`;
     const cons=legConstraints(leg);
     const dow=weekday(leg.date);
-    const consHtml=cons.map(c=>`<span class="pill ${c.kind==="before"?"bad":"warn"}" title="${esc(c.detail||"")}">${esc(c.text)}</span>`).join("") || `<span class="pill ok">No Shabbat constraints on this date</span>`;
+    const twHtml=hasTimes(leg)?`<span class="pill gray">⏰ ${esc(timesText(leg))}</span>`:"";
+    const consHtml=twHtml+cons.map(c=>`<span class="pill ${c.kind==="before"?"bad":"warn"}" title="${esc(c.detail||"")}">${esc(c.text)}</span>`).join("") || `<span class="pill ok">No Shabbat constraints on this date</span>`;
     let results="";
-    if(st.live){ const all=st.live.options; const r=rankOptions(S.includeLCC?all:all.filter(o=>!analyzeOption(o,S).lcc),S); const tag=x=>all.indexOf(x.o);
+    if(st.live){ const all=st.live.options; const use=usable(leg,all); const r=rankOptions(use,S); const tag=x=>all.indexOf(x.o);
+      const offTime=all.filter(o=>(S.includeLCC||!analyzeOption(o,S).lcc)&&!timeOk(o,leg)).length;
       results+=`<h3>⚡ Live from Kiwi.com <span class="meta" style="font-weight:500">· ${fmtAgo(st.live.at)}</span></h3>`;
-      if(!r.pref.length&&!r.highlighted.length&&!r.hidden.length) results+=`<div class="empty">No Shabbat-safe live results for this date.</div>`;
+      if(offTime) results+=`<div class="note">⏰ ${offTime} flight${offTime>1?"s":""} outside your preferred times hidden (${esc(timesText(leg))}).</div>`;
+      if(!r.pref.length&&!r.highlighted.length&&!r.hidden.length) results+=`<div class="empty">No Shabbat-safe live results${hasTimes(leg)?" within your preferred times":""} for this date.</div>`;
       results+=r.pref.map(x=>optCard(x,leg,st,tag(x),"live")).join("")+r.highlighted.map(x=>optCard(x,leg,st,tag(x),"live")).join("");
       if(r.hidden.length) results+=`<details class="group"><summary>${r.hidden.length} more live option${r.hidden.length>1?"s":""}</summary>${r.hidden.map(x=>optCard(x,leg,st,tag(x),"live")).join("")}</details>`;
       if(r.conflicts.length) results+=`<details class="group"><summary>${r.conflicts.length} excluded (Shabbat conflict or invalid)</summary>${r.conflicts.map(x=>optCard(x,leg,st,tag(x),"live")).join("")}</details>`; }
@@ -1144,6 +1198,7 @@ document.addEventListener("click",async e=>{
     const a=analyzeOption(o,S); toast(a.shabbat==="ok"?"✓ Shabbat-safe":a.shabbat==="tight"?"⚠ Tight to Shabbat":"✕ Conflicts with Shabbat"); }
   if(act==="pick"){ const st=legState(key); const o=b.dataset.src==="manual"?st.manual[+b.dataset.idx]:b.dataset.src==="live"?st.live.options[+b.dataset.idx]:st.ai.options[+b.dataset.idx]; st.selected= (st.selected&&JSON.stringify(st.selected.segments)===JSON.stringify(o.segments))?null:o; deriveTrip(trip); autosave(); renderLegs(); renderHotels(); renderSummary(); }
   if(act==="live"&&leg){ busy[key]="live"; renderLegs(); try{ legState(key).live=await kiwiSearchDirect(leg); autosave(); ensureWatch(); }catch(err){ toast(String(err.message||"").startsWith("KIWI_")?kiwiErrorText():err.code==="rate_limited"?"AI is busy — try again in a minute":"Live search failed: "+(err.message||err)); } busy[key]=null; renderLegs(); renderSummary(); }
+  if(act==="pickpkg"){ const p=tripPkgs[+b.dataset.p]; if(!p) return; const L=computeLegs(trip); p.legs.forEach((x,i)=>{ if(L[i]) legState(L[i].key).selected=x.o; }); deriveTrip(trip); autosave(); renderLegs(); renderHotels(); renderSummary(); toast(p.label+" flights selected"); }
   if(act==="pickbest"){ computeLegs(trip).forEach(l=>{ const b=bestFor(l); if(b) legState(l.key).selected=b.x.o; }); deriveTrip(trip); autosave(); renderLegs(); renderHotels(); renderSummary(); toast("Best flights selected"); }
   if(act==="aihotels"){ const i=b.dataset.i; const stay=(trip.stops||[]).find(s=>s.key===i); if(!stay) return; busy["h"+i]=true; renderHotels(); try{ trip.hotels[i]=await realHotels(stay); autosave(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":"Search failed: "+(err.message||err)); } busy["h"+i]=false; renderHotels(); renderSummary(); }
   if(act==="pickhotel"){ const h=trip.hotels[b.dataset.i]; const hi=+b.dataset.h; h.selected=h.selected===hi?null:hi; autosave(); renderHotels(); renderSummary(); }
