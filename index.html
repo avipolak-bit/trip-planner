@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Business Trip Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>:root{--bg:#f4f6fa;--card:#fff;--ink:#14213d;--muted:#5b6b85;--line:#e3e8f0;--brand:#1f4fd1;--brand2:#e8eefc;--ok:#127a46;--okbg:#e5f6ed;--warn:#a35a00;--warnbg:#fff3e0;--bad:#b42318;--badbg:#fdecea;--gold:#9a7b1e;--r:14px}
+*{box-sizing:border-box}html,body{margin:0}body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+header{background:var(--ink);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+header h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.2px}header .sub{font-size:12px;opacity:.7}
+header nav{margin-left:auto;display:flex;gap:4px}
+.tabbtn{background:transparent;border:0;color:#cfd8ea;font:inherit;font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer}.tabbtn.on{background:#ffffff1f;color:#fff}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.grid{display:grid;gap:16px}@media(min-width:900px){.grid.two{grid-template-columns:minmax(0,5fr) minmax(0,7fr);align-items:start}.sticky{position:sticky;top:76px}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:0 1px 2px #14213d0a}
+.card h2{font-size:16px;margin:0 0 4px}.card h3{font-size:14px;margin:14px 0 6px}.hint{color:var(--muted);font-size:13px;margin:0 0 10px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.4px}
+input,select,textarea{width:100%;font:inherit;font-size:16px;padding:10px 11px;border:1px solid #cfd7e4;border-radius:10px;background:#fff;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:2px solid #1f4fd155;border-color:var(--brand)}
+textarea{min-height:90px;resize:vertical}
+.row{display:grid;gap:10px;grid-template-columns:1fr 1fr}.row3{display:grid;gap:10px;grid-template-columns:1fr 1fr 1fr}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-weight:600;font-size:14px;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:#b9c4d6}.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.primary:hover{background:#1942b3}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--brand);padding:8px 10px}.btn.small{font-size:13px;padding:7px 10px}.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.55;cursor:default}.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.stop{border:1px dashed #c9d3e3;border-radius:12px;padding:10px 12px;margin-top:12px;background:#fafbfe}
+.stop .top{display:flex;align-items:center;justify-content:space-between}.stop .num{font-weight:700;font-size:13px;color:var(--brand)}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--brand2);color:var(--brand);white-space:nowrap}
+.pill.ok{background:var(--okbg);color:var(--ok)}.pill.warn{background:var(--warnbg);color:var(--warn)}.pill.bad{background:var(--badbg);color:var(--bad)}.pill.gray{background:#eef1f6;color:var(--muted)}.pill.gold{background:#fbf3d9;color:var(--gold)}
+.sh-list{display:flex;flex-direction:column;gap:8px}
+.sh{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:#f7f8fc;border:1px solid var(--line)}
+.sh .ic{width:34px;height:34px;border-radius:10px;background:#14213d;color:#ffd66b;display:grid;place-items:center;font-size:17px;flex:none}
+.sh b{display:block;font-size:14px}.sh small{color:var(--muted)}
+.leg{margin-top:4px}.leghead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.leghead .route{font-size:18px;font-weight:700}.leghead .route span{color:var(--muted);font-weight:500;font-size:14px}
+.constraints{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.links{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.links a{font-size:13px}
+.opt{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:#fff}
+.opt.sel{border-color:var(--brand);box-shadow:0 0 0 2px #1f4fd133}
+.ohead{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.title{font-weight:700}.meta{color:var(--muted);font-size:13px}
+.price{font-weight:700;text-align:right;white-space:nowrap}.price small{display:block;font-weight:500;color:var(--muted);font-size:11px}
+.segs{margin:8px 0 0;padding:0;list-style:none;font-size:13px}.segs li{display:grid;grid-template-columns:64px 1fr;gap:8px;padding:5px 0;border-top:1px solid #f0f2f7}
+.segs .fn{font-weight:700}.conn{color:var(--muted);font-size:12px;padding-left:72px}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.note{font-size:12px;color:var(--muted);margin-top:6px}
+details.group{margin-top:12px}details.group summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:13px}
+.hotel{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px}
+.hotel.sel{border-color:var(--brand);box-shadow:0 0 0 2px #1f4fd133}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{font:inherit;font-size:13px;padding:6px 10px;border-radius:999px;border:1px solid #cfd7e4;background:#fff;cursor:pointer;color:var(--ink)}.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.empty{color:var(--muted);text-align:center;padding:22px 10px;font-size:14px}
+.spinner{width:16px;height:16px;border:2px solid #fff6;border-top-color:#fff;border-radius:50%;animation:sp 0.8s linear infinite}.btn:not(.primary) .spinner{border-color:#1f4fd133;border-top-color:var(--brand)}
+@keyframes sp{to{transform:rotate(360deg)}}
+.segedit{display:grid;grid-template-columns:1.1fr .8fr .8fr 1.6fr 1.6fr auto;gap:6px;align-items:end;margin-top:6px}.segedit input{padding:8px;font-size:14px}
+@media(max-width:640px){.segedit{grid-template-columns:1fr 1fr 1fr;}.segedit .x{grid-column:3}}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}.toast.on{opacity:1}
+.savebar{position:fixed;left:0;right:0;bottom:0;background:#fffffff2;backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;justify-content:center;z-index:15}
+.savebar .btn{flex:1;max-width:260px}
+.trip{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;margin-top:10px}
+.trip b{display:block}.trip small{color:var(--muted)}
+.banner{font-size:13px;padding:10px 12px;border-radius:10px;background:var(--warnbg);color:var(--warn);margin-bottom:12px}
+.banner.info{background:var(--brand2);color:#1b3a8f}
+.summary{display:flex;flex-direction:column;gap:6px;font-size:14px}.summary .it{display:flex;gap:8px;align-items:baseline}.summary .it b{min-width:70px}
+.hidden{display:none!important}
+@media(max-width:640px){header nav{display:none}.mobnav{display:flex!important}main{padding:12px}.row3{grid-template-columns:1fr 1fr}}
+.mobnav{display:none;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:16;padding-bottom:env(safe-area-inset-bottom)}
+.mobnav button{flex:1;background:none;border:0;font:inherit;font-size:12px;font-weight:600;color:var(--muted);padding:9px 0 8px;display:flex;flex-direction:column;align-items:center;gap:2px}.mobnav button.on{color:var(--brand)}.mobnav .i{font-size:19px}
+@media(max-width:640px){.savebar{bottom:calc(56px + env(safe-area-inset-bottom));padding-bottom:10px}body{padding-bottom:calc(130px + env(safe-area-inset-bottom))}.toast{bottom:calc(140px + env(safe-area-inset-bottom))}}
+.grid>*,.row>*,.row3>*{min-width:0}input,select{min-width:0;max-width:100%}input[type=date],input[type=datetime-local]{-webkit-appearance:none;appearance:none;min-height:44px}
+.constraints .pill,.tags .pill{white-space:normal}.opt,.hotel,.card{overflow-wrap:anywhere}
+
+.provs{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.prov{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.prov b{font-size:15px}.prov .pill{margin-left:6px;vertical-align:1px}
+.pprice{font-size:18px;font-weight:700;text-align:right;white-space:nowrap}
+.gobtn{background:#0f2340;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:10px 14px;border-radius:9px;white-space:nowrap}
+.gobtn:hover{background:#1a3560}
+details.booking{background:#f4f6fa;border-radius:12px;padding:8px 10px}
+@media(max-width:640px){.prov{gap:8px;padding:10px 10px 10px 12px}.prov b{font-size:14px}.prov .meta{display:none}.prov .pill{display:block;width:max-content;margin:3px 0 0}
+ .pprice{font-size:15px}.pprice .meta{display:inline!important;font-size:12px}.gobtn{font-size:12.5px;padding:8px 10px}}
+.prov>div:first-child{min-width:0}.prov .pill{white-space:normal}
+
+input.datepick{cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%235b6b85' stroke-width='2'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M16 3v4M8 3v4M3 10h18'/%3E%3C/svg%3E") no-repeat right 10px center;padding-right:36px}
+.cal{position:absolute;z-index:60;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px #14213d33;padding:12px;width:300px}
+.cal.sheet{position:fixed;left:0;right:0;bottom:0;width:auto;border-radius:18px 18px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom))}
+.calh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.calh button{border:0;background:#eef1f6;border-radius:8px;width:34px;height:34px;font-size:20px;cursor:pointer}.calh button:disabled{opacity:.3;cursor:default}
+.calg{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.dh{text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:2px 0}
+.cd{position:relative;border:0;background:transparent;border-radius:9px;height:38px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
+.cd:hover:not(:disabled){background:var(--brand2)}.cd.we{background:#f6f2e6}.cd.dis{color:#c3cad6;cursor:default;background:transparent}
+.cd.today{outline:1.5px solid var(--brand)}.cd.sel{background:var(--brand)!important;color:#fff}
+.dot{position:absolute;left:50%;bottom:4px;width:5px;height:5px;border-radius:50%;transform:translateX(-50%)}.dot.red{background:#b42318}.dot.amb{background:#d98a00}.dot.gray{background:#8a96aa}
+.calk{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px;font-size:11.5px;color:var(--muted)}.calk .dot{position:static;display:inline-block;transform:none;margin-right:4px;vertical-align:middle}
+.calk button{margin-left:auto;border:0;background:none;color:var(--bad);font:inherit;cursor:pointer}
+#holidayWarn ul{margin:6px 0 0;padding-left:18px}#holidayWarn li{margin:3px 0}
+</style>
+</head>
+<body>
+<header style="padding-top:calc(14px + env(safe-area-inset-top))">
+  <div><h1>✈ Business Trip Planner</h1><div class="sub">Shabbat-aware routes · LY/TG first · Hilton stays</div></div>
+  <nav><button class="tabbtn on" data-tab="plan">Plan</button><button class="tabbtn" data-tab="trips">My trips</button><button class="tabbtn" data-tab="settings">Settings</button></nav>
+</header>
+<main>
+  <div id="aiNote" class="banner hidden">AI search isn't available in this view — Shabbat checks, flight checks and search links still work.</div>
+
+  <section id="view-plan">
+    <div id="holidayWarn" class="banner hidden"></div>
+    <div class="grid two">
+      <div class="grid sticky">
+        <form class="card" id="tripForm" autocomplete="off">
+          <h2>Trip</h2>
+          <p class="hint">Add each city you're visiting in order. Flights and Shabbat checks update as you go.</p>
+          <label>Trip name</label><input id="tripName" placeholder="e.g. Bangkok customer visit">
+          <div class="row"><div><label>From</label><input id="origin" list="apts"></div><div><label>Departure date</label><input type="text" readonly class="datepick" id="departDate" placeholder="Pick a date"></div></div>
+          <div id="stops"></div>
+          <div class="btns"><button type="button" class="btn small" data-act="addstop">＋ Add another city</button></div>
+          <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--ink);letter-spacing:0;margin-top:14px"><input type="checkbox" id="returnHome" style="width:auto"> Return home after the last city</label>
+        </form>
+        <div class="card"><h2>Shabbat & holidays on this trip</h2><p class="hint">Chabad.org times, plus Jewish and Israeli holidays, for where you'll be.</p><div id="shabbatList" class="sh-list"></div></div>
+        <div class="card"><div class="leghead"><h2>Trip summary</h2><button class="btn small ghost" data-act="copy">Copy</button></div><div id="summary" class="summary" style="margin-top:8px"></div><div id="watchBox"></div></div>
+      </div>
+      <div class="grid">
+        <div id="legs" class="grid"></div>
+        <div id="hotels" class="grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-trips" class="hidden">
+    <div class="card"><div class="leghead"><h2>My trips</h2><button class="btn small primary" data-act="new">New trip</button></div><p class="hint" id="storeNote"></p><div id="tripList"></div></div>
+  </section>
+
+  <section id="view-settings" class="hidden">
+    <form class="card" id="settingsForm" style="max-width:640px">
+      <h2>Travel preferences</h2>
+      <div class="row"><div><label>Home airport</label><input id="sHome" list="apts"></div><div><label>Cabin</label><select id="sCabin"><option>Economy</option><option>Premium Economy</option><option>Business</option></select></div></div>
+      <label>Preferred airlines (IATA codes)</label><input id="sPref" placeholder="LY, TG">
+      <p class="hint" style="margin-top:6px">Preferred airlines are always shown first. Others appear only if they're quicker (1h+) or cheaper by at least the amount below — and quicker always ranks above cheaper. "Quicker" = total time from take-off at the origin to landing at the final destination, including layovers.</p>
+      <label>Count as cheaper when it saves at least (USD)</label><input id="sCheaper" type="number" min="0" step="10">
+      <h3>Low-cost airlines</h3>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--ink);letter-spacing:0"><input type="checkbox" id="sLCC" style="width:auto"> Include low-cost / no-frills airlines (Wizz, Ryanair, easyJet, Israir, Arkia, AirAsia…)</label>
+      <div class="row"><div><label>I usually travel with</label><select id="sBags"><option value="personal">Small personal item only</option><option value="cabin">Cabin trolley</option><option value="checked">Cabin trolley + checked bag</option></select></div><div><label>Min self-transfer (hours)</label><input id="sSelfT" type="number" step="0.5" min="0"></div></div>
+      <p class="hint" style="margin-top:6px">Low-cost fares are compared including estimated bag & seat fees for your luggage. Self-transfers (separate tickets) need extra time to re-check in.</p>
+      <label>Minimum comfortable connection (hours)</label><input id="sConn" type="number" step="0.5" min="0">
+      <label>Hotel search radius (km from destination / meeting address)</label><input id="sRadius" type="number" min="1" max="300" step="5">
+      <h3>Gett transfers</h3>
+      <div class="row3"><div><label>At TLV _ h before</label><input id="sTLV" type="number" step="0.5" min="0"></div><div><label>Abroad _ h before</label><input id="sAbroad" type="number" step="0.5" min="0"></div><div><label>Drive (min)</label><input id="sDrive" type="number" min="0"></div></div>
+      <p class="hint" style="margin-top:6px">Used to suggest Gett pickup times once a flight is selected. Booking happens in your own Gett app — the planner never asks for your login.</p>
+      <h3>Shabbat buffers</h3>
+      <div class="row"><div><label>Land at least _ h before Shabbat</label><input id="sBufB" type="number" step="0.5" min="0"></div><div><label>Depart at least _ h after Shabbat</label><input id="sBufA" type="number" step="0.5" min="0"></div></div>
+      <p class="hint" style="margin-top:6px">Flights inside the buffer aren't hidden — they're marked “Tight to Shabbat” so you can make an exception.</p>
+      <div class="row"><div><label>Candle lighting (min before sunset)</label><input id="sCandle" type="number" min="0"></div><div><label>Shabbat ends</label><select id="sHav"><option value="8.5">Chabad.org (sun 8.5° below)</option><option value="50">50 min after sunset</option><option value="72">72 min after sunset (Rabbeinu Tam)</option></select></div></div>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--ink);letter-spacing:0;margin-top:12px"><input type="checkbox" id="sChabadLocal" style="width:auto"> Use Chabad.org local custom where it differs (Tel Aviv 22 min, Haifa & Eilat 30, Chicago 20)</label>
+      <div class="btns"><button type="button" class="btn small ghost danger" data-act="resetsettings">Reset to defaults</button></div>
+      <p class="hint" style="margin-top:14px"><b>All tools in this planner are free:</b> Kiwi.com live search, Google Flights, Skyscanner, Kayak, ITA Matrix, FlightConnections, FlightSeatmap seat maps and the ExpertFlyer free plan (1 seat alert). None of them needs a paid plan; if a site offers an upgrade, you can ignore it.</p>
+      <p class="hint" style="margin-top:8px">Shabbat and Yom Tov times follow Chabad.org's method — candles 18 min before sunset (or the city's Chabad custom), Shabbat ends when the sun is 8.5° below the horizon — calculated for the city centre, with Israel vs. diaspora holiday days handled. Expect ±1 min vs. Chabad.org; tap “Chabad.org” on any time to see their official listing. AI-suggested flights are based on typical schedules — always confirm the final itinerary and price via the booking links.</p>
+    </form>
+    <div class="card standalone-only hidden" style="max-width:640px;margin-top:16px">
+      <h2>Cloud helper (sync + AI)</h2>
+      <p class="hint">Your free Cloudflare Worker from the setup guide. Stored only on this device.</p>
+      <label>Worker URL</label><input id="cUrl" placeholder="https://trip-helper.yourname.workers.dev" autocomplete="off">
+      <label>Access key</label><input id="cKey" type="password" autocomplete="off">
+      <div class="btns"><button type="button" class="btn primary small" id="cSave">Save &amp; connect</button></div>
+    </div>
+  </section>
+</main>
+<div id="savebar" class="savebar"><button class="btn" data-act="new">New trip</button><button class="btn primary" data-act="save">Save trip</button></div>
+<nav class="mobnav"><button class="on" data-tab="plan"><span class="i">🗺</span>Plan</button><button data-tab="trips"><span class="i">🧳</span>My trips</button><button data-tab="settings"><span class="i">⚙</span>Settings</button></nav>
+<div id="toast" class="toast"></div>
+<datalist id="apts"></datalist>
+<script>// ===== Engine: airports, timezones, solar times, Shabbat/Yom Tov windows, itinerary analysis =====
+const AIRPORTS = {
+  // code: [city, country, lat, lon, tz]
+  TLV:["Tel Aviv","IL",32.011,34.887,"Asia/Jerusalem"], ETM:["Eilat (Ramon)","IL",29.724,35.012,"Asia/Jerusalem"], HFA:["Haifa","IL",32.809,35.043,"Asia/Jerusalem"],
+  LHR:["London Heathrow","GB",51.470,-0.454,"Europe/London"], LGW:["London Gatwick","GB",51.153,-0.182,"Europe/London"], LCY:["London City","GB",51.505,0.055,"Europe/London"], LTN:["London Luton","GB",51.875,-0.368,"Europe/London"], MAN:["Manchester","GB",53.354,-2.275,"Europe/London"],
+  CDG:["Paris CDG","FR",49.010,2.548,"Europe/Paris"], ORY:["Paris Orly","FR",48.723,2.379,"Europe/Paris"], NCE:["Nice","FR",43.658,7.216,"Europe/Paris"],
+  FRA:["Frankfurt","DE",50.034,8.562,"Europe/Berlin"], MUC:["Munich","DE",48.354,11.786,"Europe/Berlin"], BER:["Berlin","DE",52.366,13.503,"Europe/Berlin"], DUS:["Düsseldorf","DE",51.289,6.767,"Europe/Berlin"], HAM:["Hamburg","DE",53.630,9.988,"Europe/Berlin"],
+  AMS:["Amsterdam","NL",52.310,4.768,"Europe/Amsterdam"], BRU:["Brussels","BE",50.901,4.484,"Europe/Brussels"], ZRH:["Zurich","CH",47.458,8.555,"Europe/Zurich"], GVA:["Geneva","CH",46.238,6.109,"Europe/Zurich"],
+  VIE:["Vienna","AT",48.110,16.570,"Europe/Vienna"], FCO:["Rome","IT",41.800,12.239,"Europe/Rome"], MXP:["Milan","IT",45.630,8.723,"Europe/Rome"], MAD:["Madrid","ES",40.472,-3.561,"Europe/Madrid"], BCN:["Barcelona","ES",41.297,2.078,"Europe/Madrid"],
+  LIS:["Lisbon","PT",38.774,-9.134,"Europe/Lisbon"], ATH:["Athens","GR",37.936,23.947,"Europe/Athens"], LCA:["Larnaca","CY",34.875,33.625,"Asia/Nicosia"], IST:["Istanbul","TR",41.262,28.742,"Europe/Istanbul"], SAW:["Istanbul Sabiha","TR",40.899,29.309,"Europe/Istanbul"],
+  PRG:["Prague","CZ",50.101,14.260,"Europe/Prague"], WAW:["Warsaw","PL",52.166,20.967,"Europe/Warsaw"], BUD:["Budapest","HU",47.437,19.256,"Europe/Budapest"], OTP:["Bucharest","RO",44.571,26.085,"Europe/Bucharest"], SOF:["Sofia","BG",42.695,23.406,"Europe/Sofia"],
+  BEG:["Belgrade","RS",44.818,20.309,"Europe/Belgrade"], CPH:["Copenhagen","DK",55.618,12.656,"Europe/Copenhagen"], ARN:["Stockholm","SE",59.650,17.919,"Europe/Stockholm"], OSL:["Oslo","NO",60.194,11.100,"Europe/Oslo"], HEL:["Helsinki","FI",60.317,24.963,"Europe/Helsinki"],
+  DUB:["Dublin","IE",53.421,-6.270,"Europe/Dublin"], TBS:["Tbilisi","GE",41.669,44.955,"Asia/Tbilisi"], GYD:["Baku","AZ",40.467,50.047,"Asia/Baku"], EVN:["Yerevan","AM",40.147,44.396,"Asia/Yerevan"],
+  DXB:["Dubai","AE",25.253,55.364,"Asia/Dubai"], AUH:["Abu Dhabi","AE",24.433,54.651,"Asia/Dubai"], DOH:["Doha","QA",25.273,51.608,"Asia/Qatar"], BAH:["Bahrain","BH",26.271,50.634,"Asia/Bahrain"], AMM:["Amman","JO",31.723,35.993,"Asia/Amman"], CAI:["Cairo","EG",30.122,31.406,"Africa/Cairo"], RUH:["Riyadh","SA",24.958,46.699,"Asia/Riyadh"],
+  BKK:["Bangkok","TH",13.690,100.750,"Asia/Bangkok"], DMK:["Bangkok Don Mueang","TH",13.913,100.607,"Asia/Bangkok"], HKT:["Phuket","TH",8.113,98.317,"Asia/Bangkok"], CNX:["Chiang Mai","TH",18.767,98.963,"Asia/Bangkok"],
+  SIN:["Singapore","SG",1.364,103.991,"Asia/Singapore"], KUL:["Kuala Lumpur","MY",2.746,101.710,"Asia/Kuala_Lumpur"], CGK:["Jakarta","ID",-6.126,106.656,"Asia/Jakarta"], DPS:["Bali","ID",-8.748,115.167,"Asia/Makassar"], MNL:["Manila","PH",14.509,121.020,"Asia/Manila"],
+  HAN:["Hanoi","VN",21.221,105.807,"Asia/Ho_Chi_Minh"], SGN:["Ho Chi Minh City","VN",10.819,106.652,"Asia/Ho_Chi_Minh"], PNH:["Phnom Penh","KH",11.547,104.844,"Asia/Phnom_Penh"], RGN:["Yangon","MM",16.907,96.133,"Asia/Yangon"],
+  HKG:["Hong Kong","HK",22.308,113.918,"Asia/Hong_Kong"], TPE:["Taipei","TW",25.077,121.233,"Asia/Taipei"], ICN:["Seoul Incheon","KR",37.460,126.440,"Asia/Seoul"], NRT:["Tokyo Narita","JP",35.772,140.393,"Asia/Tokyo"], HND:["Tokyo Haneda","JP",35.549,139.780,"Asia/Tokyo"], KIX:["Osaka","JP",34.427,135.244,"Asia/Tokyo"],
+  PEK:["Beijing","CN",40.080,116.585,"Asia/Shanghai"], PVG:["Shanghai","CN",31.144,121.808,"Asia/Shanghai"], CAN:["Guangzhou","CN",23.392,113.299,"Asia/Shanghai"],
+  DEL:["Delhi","IN",28.556,77.100,"Asia/Kolkata"], BOM:["Mumbai","IN",19.089,72.866,"Asia/Kolkata"], BLR:["Bengaluru","IN",13.199,77.706,"Asia/Kolkata"], MAA:["Chennai","IN",12.990,80.169,"Asia/Kolkata"], CMB:["Colombo","LK",7.180,79.884,"Asia/Colombo"],
+  TAS:["Tashkent","UZ",41.258,69.281,"Asia/Tashkent"], ALA:["Almaty","KZ",43.352,77.040,"Asia/Almaty"], NQZ:["Astana","KZ",51.022,71.467,"Asia/Almaty"],
+  JFK:["New York JFK","US",40.641,-73.778,"America/New_York"], EWR:["Newark","US",40.690,-74.174,"America/New_York"], IAD:["Washington Dulles","US",38.953,-77.456,"America/New_York"], BOS:["Boston","US",42.366,-71.010,"America/New_York"], MIA:["Miami","US",25.796,-80.287,"America/New_York"],
+  ORD:["Chicago","US",41.978,-87.905,"America/Chicago"], LAX:["Los Angeles","US",33.942,-118.408,"America/Los_Angeles"], SFO:["San Francisco","US",37.621,-122.379,"America/Los_Angeles"], LAS:["Las Vegas","US",36.084,-115.154,"America/Los_Angeles"],
+  YYZ:["Toronto","CA",43.677,-79.625,"America/Toronto"], YUL:["Montreal","CA",45.470,-73.741,"America/Toronto"], MEX:["Mexico City","MX",19.436,-99.072,"America/Mexico_City"], PTY:["Panama City","PA",9.071,-79.383,"America/Panama"],
+  BOG:["Bogotá","CO",4.702,-74.147,"America/Bogota"], LIM:["Lima","PE",-12.022,-77.114,"America/Lima"], SCL:["Santiago","CL",-33.393,-70.786,"America/Santiago"], GRU:["São Paulo","BR",-23.436,-46.473,"America/Sao_Paulo"], EZE:["Buenos Aires","AR",-34.822,-58.536,"America/Argentina/Buenos_Aires"],
+  JNB:["Johannesburg","ZA",-26.139,28.246,"Africa/Johannesburg"], CPT:["Cape Town","ZA",-33.965,18.602,"Africa/Johannesburg"], ADD:["Addis Ababa","ET",8.978,38.799,"Africa/Addis_Ababa"], NBO:["Nairobi","KE",-1.319,36.928,"Africa/Nairobi"],
+  LOS:["Lagos","NG",6.577,3.321,"Africa/Lagos"], ACC:["Accra","GH",5.605,-0.167,"Africa/Accra"], CMN:["Casablanca","MA",33.368,-7.590,"Africa/Casablanca"], KGL:["Kigali","RW",-1.969,30.139,"Africa/Kigali"], EBB:["Entebbe","UG",0.042,32.444,"Africa/Kampala"],
+  SYD:["Sydney","AU",-33.940,151.175,"Australia/Sydney"], MEL:["Melbourne","AU",-37.673,144.843,"Australia/Melbourne"], AKL:["Auckland","NZ",-37.008,174.792,"Pacific/Auckland"],
+};
+const EXTRA_AIRPORTS = {}; // filled at runtime (AI lookups / saved)
+// Shabbat times follow Chabad.org's method: sunset = sun 0.833° below horizon, candles = local Chabad custom
+// (18 min unless the city's Chabad.org page lists otherwise), Shabbat ends = sun 8.5° below horizon.
+// Times are computed for the city you'll be in (city-centre coordinates), not the airfield.
+const CITY_COORDS={TLV:[32.0853,34.7818],ETM:[29.5577,34.9519],HFA:[32.7940,34.9896],BKK:[13.7563,100.5018],DMK:[13.7563,100.5018],LHR:[51.5074,-0.1278],LGW:[51.5074,-0.1278],LCY:[51.5074,-0.1278],LTN:[51.5074,-0.1278],
+ CDG:[48.8566,2.3522],ORY:[48.8566,2.3522],FRA:[50.1109,8.6821],MUC:[48.1351,11.5820],BER:[52.5200,13.4050],AMS:[52.3676,4.9041],FCO:[41.9028,12.4964],MXP:[45.4642,9.1900],MAD:[40.4168,-3.7038],BCN:[41.3874,2.1686],
+ IST:[41.0082,28.9784],SAW:[41.0082,28.9784],ATH:[37.9838,23.7275],VIE:[48.2082,16.3738],ZRH:[47.3769,8.5417],PRG:[50.0755,14.4378],WAW:[52.2297,21.0122],BUD:[47.4979,19.0402],
+ DXB:[25.2048,55.2708],AUH:[24.4539,54.3773],DOH:[25.2854,51.5310],SIN:[1.2903,103.8520],KUL:[3.1390,101.6869],CGK:[-6.2088,106.8456],MNL:[14.5995,120.9842],HAN:[21.0278,105.8342],SGN:[10.8231,106.6297],
+ HKG:[22.3193,114.1694],TPE:[25.0330,121.5654],ICN:[37.5665,126.9780],NRT:[35.6762,139.6503],HND:[35.6762,139.6503],KIX:[34.6937,135.5023],PEK:[39.9042,116.4074],PVG:[31.2304,121.4737],
+ DEL:[28.6139,77.2090],BOM:[19.0760,72.8777],BLR:[12.9716,77.5946],JFK:[40.7128,-74.0060],EWR:[40.7128,-74.0060],IAD:[38.9072,-77.0369],ORD:[41.8781,-87.6298],LAX:[34.0522,-118.2437],SFO:[37.7749,-122.4194],
+ MIA:[25.7617,-80.1918],BOS:[42.3601,-71.0589],YYZ:[43.6532,-79.3832],MEX:[19.4326,-99.1332],GRU:[-23.5505,-46.6333],EZE:[-34.6037,-58.3816],BOG:[4.7110,-74.0721],JNB:[-26.2041,28.0473],NBO:[-1.2921,36.8219],SYD:[-33.8688,151.2093],MEL:[-37.8136,144.9631]};
+// Candle-lighting minutes where Chabad.org's city page differs from 18
+const CHABAD_CANDLE={TLV:22,HFA:30,ETM:30,ORD:20};
+// Chabad.org city pages (locationId) for quick verification; others open the country list
+const CHABAD_LOC={TLV:531,HFA:689,ETM:687,BKK:42,DMK:42};
+function apt(code){ code=(code||"").toUpperCase().trim(); const a = AIRPORTS[code]||EXTRA_AIRPORTS[code]; if(!a) return null; const c=CITY_COORDS[code]; return {code, city:a[0], country:a[1], lat:c?c[0]:a[2], lon:c?c[1]:a[3], tz:a[4], candleMin:CHABAD_CANDLE[code]}; }
+function chabadUrl(code){ const id=CHABAD_LOC[code]; if(id) return `https://www.chabad.org/calendar/candlelighting_cdo/locationId/${id}/locationType/1/jewish/Candle-Lighting.htm`;
+  const a=apt(code); let n=""; try{ n=new Intl.DisplayNames(["en"],{type:"region"}).of(a.country); }catch{} if(a&&a.country==="GB") n="England"; if(a&&a.country==="US") n="United States";
+  return n?`https://www.chabad.org/calendar/zmanim/cities_cdo/aid/3559639/country/${encodeURIComponent(n)}`:"https://www.chabad.org/calendar/candlelighting.htm"; }
+
+// ---------- timezone helpers ----------
+const _dtfCache = {};
+function _dtf(tz){ return _dtfCache[tz] || (_dtfCache[tz] = new Intl.DateTimeFormat("en-US",{timeZone:tz,hourCycle:"h23",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",weekday:"short"})); }
+function zoneParts(ms,tz){ const o={}; for(const p of _dtf(tz).formatToParts(new Date(ms))) o[p.type]=p.value; return {y:+o.year,m:+o.month,d:+o.day,h:+o.hour%24,mi:+o.minute,s:+o.second,wd:o.weekday}; }
+function tzOffsetMs(ms,tz){ const p=zoneParts(ms,tz); return Date.UTC(p.y,p.m-1,p.d,p.h,p.mi,p.s) - Math.floor(ms/1000)*1000; }
+// "YYYY-MM-DDTHH:MM" local in tz -> UTC ms
+function localToUtc(str,tz){
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})/.exec(str||""); if(!m) return NaN;
+  const guess = Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5]);
+  let utc = guess - tzOffsetMs(guess,tz);
+  const off2 = tzOffsetMs(utc,tz); utc = guess - off2; return utc;
+}
+function fmtTime(ms,tz){ ms=Math.round(ms/60000)*60000; const p=zoneParts(ms,tz); return String(p.h).padStart(2,"0")+":"+String(p.mi).padStart(2,"0"); }
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtDay(ms,tz){ ms=Math.round(ms/60000)*60000; const p=zoneParts(ms,tz); return `${p.wd} ${p.d} ${MON[p.m-1]}`; }
+function fmtDT(ms,tz){ return fmtDay(ms,tz)+" "+fmtTime(ms,tz); }
+function ymd(y,m,d){ const t=new Date(Date.UTC(y,m-1,d)); return t.toISOString().slice(0,10); }
+function addDays(dateStr,n){ const [y,m,d]=dateStr.split("-").map(Number); return ymd(y,m,d+n); }
+function weekday(dateStr){ const [y,m,d]=dateStr.split("-").map(Number); return new Date(Date.UTC(y,m-1,d)).getUTCDay(); } // 0=Sun..6=Sat
+function dayLabel(dateStr){ const [y,m,d]=dateStr.split("-").map(Number); return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][weekday(dateStr)]+` ${d} ${MON[m-1]}`; }
+
+// ---------- solar ----------
+const RAD=Math.PI/180;
+// UTC ms when the sun crosses `alt` degrees (negative = below horizon) on local civil date dateStr at lat/lon (east +)
+function sunAltTime(dateStr,lat,lon,alt,rising){
+  const [y,m,d]=dateStr.split("-").map(Number);
+  const jd = Date.UTC(y,m-1,d,12)/86400000 + 2440587.5;
+  const Jstar = (jd - 2451545.0) - lon/360;
+  const M = ((357.5291 + 0.98560028*Jstar)%360+360)%360;
+  const C = 1.9148*Math.sin(M*RAD)+0.02*Math.sin(2*M*RAD)+0.0003*Math.sin(3*M*RAD);
+  const L = (M + C + 180 + 102.9372)%360;
+  const Jt = 2451545.0 + Jstar + 0.0053*Math.sin(M*RAD) - 0.0069*Math.sin(2*L*RAD);
+  const sinDec = Math.sin(L*RAD)*Math.sin(23.4397*RAD); const cosDec=Math.cos(Math.asin(sinDec));
+  const cosW = (Math.sin(alt*RAD) - Math.sin(lat*RAD)*sinDec)/(Math.cos(lat*RAD)*cosDec);
+  if (cosW<-1||cosW>1) return NaN;
+  const w = Math.acos(cosW)/RAD;
+  const J = rising ? Jt - w/360 : Jt + w/360;
+  return (J - 2440587.5)*86400000;
+}
+
+// ---------- Hebrew calendar / Yom Tov ----------
+const _heb = new Intl.DateTimeFormat("en-u-ca-hebrew",{day:"numeric",month:"long",timeZone:"UTC"});
+function hebDate(dateStr){ const o={}; for(const p of _heb.formatToParts(new Date(dateStr+"T12:00:00Z"))) o[p.type]=p.value; return {d:+o.day, m:o.month}; }
+function yomTov(dateStr,israel){
+  const {d,m}=hebDate(dateStr);
+  if(m==="Tishri"){ if(d===1||d===2) return "Rosh Hashana"; if(d===10) return "Yom Kippur"; if(d===15||(!israel&&d===16)) return "Sukkot"; if(d===22) return israel?"Shemini Atzeret / Simchat Torah":"Shemini Atzeret"; if(!israel&&d===23) return "Simchat Torah"; }
+  if(m==="Nisan"){ if(d===15||(!israel&&d===16)) return "Pesach"; if(d===21||(!israel&&d===22)) return "Pesach (last day)"; }
+  if(m==="Sivan"){ if(d===6||(!israel&&d===7)) return "Shavuot"; }
+  return null;
+}
+// All Jewish & Israeli calendar days worth knowing about when planning travel.
+// Returns [{name, kind}] where kind: "yomtov" (no travel), "cholhamoed", "fast", "minor", "israeli" (national day in Israel)
+function _hd(dateStr){ const h=hebDate(dateStr); return h; }
+function jewishDay(dateStr,israel){
+  const out=[]; const {d,m}=_hd(dateStr); const wd=weekday(dateStr);
+  const yt=yomTov(dateStr,israel); if(yt) out.push({name:yt,kind:"yomtov"});
+  const add=(name,kind)=>out.push({name,kind});
+  if(m==="Elul"&&d===29) add("Erev Rosh Hashana","erev");
+  if(m==="Tishri"){
+    if(d===9) add("Erev Yom Kippur","erev");
+    if(d===14) add("Erev Sukkot","erev");
+    if((d>=16&&d<=20&&israel)||(d>=17&&d<=20&&!israel)) add("Sukkot (Chol HaMoed)","cholhamoed");
+    if(d===21) add("Hoshana Raba","cholhamoed");
+    if((d===3&&wd!==6)||(d===4&&wd===0)) add("Fast of Gedaliah","fast");
+  }
+  if(m==="Heshvan"&&d===12&&israel) add("Yitzhak Rabin Memorial Day","israeli");
+  // Chanukah: 25 Kislev + 7 days
+  for(let k=0;k<8;k++){ const h=_hd(addDays(dateStr,-k)); if(h.m==="Kislev"&&h.d===25){ add(`Chanukah (day ${k+1})`,"minor"); break; } }
+  if(m==="Tevet"&&d===10) add("Fast of 10 Tevet","fast");
+  if(m==="Shevat"&&d===15) add("Tu BiShvat","minor");
+  const purimMonth=(mm)=>mm==="Adar"||mm==="Adar II";
+  if(purimMonth(m)){
+    if((d===13&&wd!==6)||(d===11&&wd===4)) add("Fast of Esther","fast");
+    if(d===14) add("Purim","minor");
+    if(d===15&&israel) add("Shushan Purim (Jerusalem)","minor");
+  }
+  if(m==="Nisan"){
+    if(d===14) add("Erev Pesach","erev");
+    if((d>=16&&d<=20&&israel)||(d>=17&&d<=20&&!israel)) add("Pesach (Chol HaMoed)","cholhamoed");
+    // Yom HaShoah 27 Nisan (Fri→Thu 26, Sun→Mon 28)
+    if((d===27&&wd!==5&&wd!==0)||(d===26&&wd===4)||(d===28&&wd===1)) add("Yom HaShoah (Holocaust Remembrance Day)","israeli");
+  }
+  if(m==="Iyar"){
+    // Yom HaAtzmaut 5 Iyar: Fri→Thu 4, Sat→Thu 3, Mon→Tue 6; Yom HaZikaron the day before
+    const atz = (d===5&&wd!==5&&wd!==6&&wd!==1)||(d===4&&wd===4)||(d===3&&wd===4)||(d===6&&wd===2);
+    const zik = (d===4&&wd!==4&&wd!==5&&wd!==0)||(d===3&&wd===3)||(d===2&&wd===3)||(d===5&&wd===1);
+    if(zik) add("Yom HaZikaron (Memorial Day)","israeli");
+    if(atz) add("Yom HaAtzmaut (Independence Day)","israeli");
+    if(d===18) add("Lag BaOmer","minor");
+    if(d===28) add("Yom Yerushalayim (Jerusalem Day)","israeli");
+  }
+  if(m==="Sivan"&&d===5) add("Erev Shavuot","erev");
+  if(m==="Tamuz"&&((d===17&&wd!==6)||(d===18&&wd===0))) add("Fast of 17 Tammuz","fast");
+  if(m==="Av"&&((d===9&&wd!==6)||(d===10&&wd===0))) add("Tisha B'Av","fast");
+  return out;
+}
+function holyName(dateStr,israel){ const yt=yomTov(dateStr,israel); if(yt) return weekday(dateStr)===6? yt+" + Shabbat" : yt; return weekday(dateStr)===6?"Shabbat":null; }
+
+// settings: {candleMin, havdalah:"8.5"|"72"|"50"}
+// returns windows [{start,end,name,startDay,endDay}] for location loc covering dates [fromDate,toDate]
+function holyWindows(loc,fromDate,toDate,settings){
+  const israel = loc.country==="IL"; const out=[];
+  let d = addDays(fromDate,-1);
+  const stop = addDays(toDate,2);
+  while(d<=stop){
+    if(holyName(d,israel) && !holyName(addDays(d,-1),israel)){
+      let last=d; const names=[holyName(d,israel)];
+      while(holyName(addDays(last,1),israel)){ last=addDays(last,1); const n=holyName(last,israel); if(!names.includes(n)) names.push(n); }
+      const erev = addDays(d,-1);
+      const cm = (settings.chabadLocal!==false && loc.candleMin!=null) ? loc.candleMin : (settings.candleMin||18);
+      const start = sunAltTime(erev,loc.lat,loc.lon,-0.833,false) - cm*60000;
+      const sunsetEnd = sunAltTime(last,loc.lat,loc.lon,-0.833,false);
+      let end;
+      if(settings.havdalah==="72") end = sunsetEnd + 72*60000;
+      else if(settings.havdalah==="50") end = sunsetEnd + 50*60000;
+      else end = sunAltTime(last,loc.lat,loc.lon,-8.5,false);
+      if(isNaN(start)||isNaN(end)) { d=addDays(last,1); continue; }
+      out.push({start,end,name:names.join(" → "),erev,last,loc});
+      d = addDays(last,1);
+    } else d = addDays(d,1);
+  }
+  return out.filter(w=> w.last>=addDays(fromDate,-1) && w.erev<=addDays(toDate,1));
+}
+
+// ---------- Itinerary analysis ----------
+const LCC={W6:"Wizz Air",W4:"Wizz Air Malta",W9:"Wizz Air UK",FR:"Ryanair",RK:"Ryanair UK",U2:"easyJet",EC:"easyJet Europe",DS:"easyJet Switzerland","6H":"Israir",IZ:"Arkia",BZ:"Blue Bird",H6:"Air Haifa",FZ:"flydubai",G9:"Air Arabia","3O":"Air Arabia Maroc",PC:"Pegasus",XQ:"SunExpress",VY:"Vueling",HV:"Transavia",TO:"Transavia France",LS:"Jet2",EW:"Eurowings",DY:"Norwegian",D8:"Norwegian",FD:"Thai AirAsia",AK:"AirAsia",D7:"AirAsia X",XJ:"Thai AirAsia X",VJ:"VietJet",TR:"Scoot",SL:"Thai Lion Air",DD:"Nok Air","5J":"Cebu Pacific",JQ:"Jetstar","3K":"Jetstar Asia",IX:"Air India Express","6E":"IndiGo",SG:"SpiceJet",F3:"flyadeal",XY:"flynas",J9:"Jazeera",NK:"Spirit",F9:"Frontier",B6:"JetBlue",WS:"WestJet",HG:"HiSky",V7:"Volotea","0B":"Blue Air",BJ:"Nouvelair"};
+const isLCC=c=>!!LCC[(c||"").toUpperCase()];
+// option: {segments:[{carrier,flight,from,to,dep,arr}]}  dep/arr local "YYYY-MM-DDTHH:MM"
+function analyzeOption(opt,S){
+  const res={ok:true,errors:[],flags:[],shabbat:"ok",shabbatNotes:[],conns:[]};
+  const segs=(opt.segments||[]).map(s=>({...s,from:(s.from||"").toUpperCase(),to:(s.to||"").toUpperCase()}));
+  if(!segs.length){ res.ok=false; res.errors.push("No flight segments"); return res; }
+  for(const s of segs){
+    const A=apt(s.from), B=apt(s.to);
+    if(!A||!B){ res.ok=false; res.errors.push(`Unknown airport ${!A?s.from:s.to}`); continue; }
+    s.depU=localToUtc(s.dep,A.tz); s.arrU=localToUtc(s.arr,B.tz);
+    if(isNaN(s.depU)||isNaN(s.arrU)){ res.ok=false; res.errors.push(`Bad time on ${s.flight||s.from+"-"+s.to}`); continue; }
+    if(s.arrU<=s.depU) s.arrU+=86400000; // tolerate missing +1 day
+    s.durH=(s.arrU-s.depU)/3600000;
+  }
+  if(!res.ok) { res.segs=segs; return res; }
+  res.segs=segs;
+  res.depU=segs[0].depU; res.arrU=segs[segs.length-1].arrU; res.totalH=(res.arrU-res.depU)/3600000;
+  res.stops=segs.length-1;
+  for(let i=1;i<segs.length;i++){
+    const c=(segs[i].depU-segs[i-1].arrU)/3600000; res.conns.push({at:segs[i].from,h:c});
+    const ca=(segs[i-1].carrier||"").toUpperCase(), cb=(segs[i].carrier||"").toUpperCase();
+    const selfT = ca!==cb && (isLCC(ca)||isLCC(cb)); if(selfT) res.selfTransfer=true;
+    if(c<0){ res.flags.push({t:"bad",m:`Impossible connection at ${segs[i].from}`}); }
+    else if(selfT && c<(S.selfTransferMin||3)) res.flags.push({t:"warn",m:`Self-transfer at ${segs[i].from} with only ${fmtH(c)} — re-check in & bags yourself`});
+    else if(selfT) res.flags.push({t:"info",m:`Self-transfer at ${segs[i].from} (separate tickets)`});
+    else if(c<(S.minConn||1.5)) res.flags.push({t:"warn",m:`Short connection ${fmtH(c)} at ${segs[i].from}`});
+    else if(c>(S.longConn||6)) res.flags.push({t:"info",m:`Long layover ${fmtH(c)} at ${segs[i].from}`});
+  }
+  const carriers=[...new Set(segs.map(s=>(s.carrier||(s.flight||"").slice(0,2)).toUpperCase()))];
+  res.carriers=carriers; res.lcc=carriers.some(isLCC);
+  const pref=(S.prefAirlines||[]).map(x=>x.toUpperCase());
+  res.preferred = carriers.every(c=>pref.includes(c)) ? "all" : carriers.some(c=>pref.includes(c)) ? "some" : "none";
+  // Shabbat check: travel interval vs windows at every airport touched
+  const codes=[...new Set(segs.flatMap(s=>[s.from,s.to]))];
+  const d0=new Date(res.depU-2*86400000).toISOString().slice(0,10), d1=new Date(res.arrU+2*86400000).toISOString().slice(0,10);
+  const before=(S.bufBefore??3)*3600000, after=(S.bufAfter??3)*3600000;
+  // Rule: judged by local time where you are — no departure during Shabbat at the origin, no landing during
+  // (or after flying through) Shabbat at the destination, and no ground time at a connection during Shabbat there.
+  const winCache={}; const W=code=>winCache[code]||(winCache[code]=holyWindows(apt(code),d0,d1,S));
+  const bad=(m)=>{ res.shabbat="violation"; if(!res.shabbatNotes.includes(m)) res.shabbatNotes.push(m); };
+  segs.forEach((s,i)=>{
+    const A=apt(s.from), B=apt(s.to);
+    for(const w of W(s.from)) if(s.depU>=w.start && s.depU<w.end) bad(`${s.flight||"Flight"} departs ${A.city} during ${w.name} (${fmtDT(w.start,A.tz)} – ${fmtDT(w.end,A.tz)})`);
+    for(const w of W(s.to)) if(s.arrU>w.start && s.depU<w.end) bad(`${s.flight||"Flight"} lands in ${B.city} after ${w.name} begins (candles ${fmtDT(w.start,B.tz)})`);
+    if(i>0){ const C=apt(s.from), g0=segs[i-1].arrU, g1=s.depU; for(const w of W(s.from)) if(g0<w.end && g1>w.start) bad(`Connection in ${C.city} overlaps ${w.name} (${fmtDT(w.start,C.tz)} – ${fmtDT(w.end,C.tz)})`); }
+  });
+  if(res.shabbat!=="violation"){
+    const O=apt(segs[0].from), D=apt(segs[segs.length-1].to);
+    for(const w of holyWindows(D,d0,d1,S)){ const gap=w.start-res.arrU; if(gap>=0 && gap<before){ res.shabbat="tight"; res.shabbatNotes.push(`Lands only ${fmtH(gap/3600000)} before ${w.name} in ${D.city} (candles ${fmtTime(w.start,D.tz)})`);} }
+    for(const w of holyWindows(O,d0,d1,S)){ const gap=res.depU-w.end; if(gap>=0 && gap<after){ res.shabbat="tight"; res.shabbatNotes.push(`Departs only ${fmtH(gap/3600000)} after ${w.name} ends in ${O.city} (${fmtTime(w.end,O.tz)})`);} }
+    // also: connection airport windows close to transit
+    for(let i=1;i<segs.length;i++){ const C=apt(segs[i].from); for(const w of holyWindows(C,d0,d1,S)){ const gap=w.start-segs[i].depU; if(gap>=0&&gap<before){ res.shabbat="tight"; res.shabbatNotes.push(`Connection in ${C.city} departs ${fmtH(gap/3600000)} before ${w.name} there`);} } }
+  }
+  if(res.flags.some(f=>f.t==="bad")) res.ok=false;
+  return res;
+}
+function fmtH(h){ const neg=h<0; h=Math.abs(h); const H=Math.floor(h), M=Math.round((h-H)*60); return (neg?"-":"")+(M===60?`${H+1}h`:`${H}h${M?String(M).padStart(2,"0"):""}`); }
+// price used for comparison = fare + estimated extras for the traveler's baggage (low-cost carriers)
+function priceMid(o){ const p=o.priceUSD; if(!p) return null; let v; if(typeof p==="number") v=p; else { const lo=+p.low||+p.high, hi=+p.high||+p.low; v=lo&&hi?(lo+hi)/2:null; } if(v==null) return null; return v+(+o.extrasUSD||0); }
+
+// Rank options per user rules: preferred airlines first; others shown only if quicker or cheaper
+function analyzeMulti(opt,S,legs){
+  const parts=(opt.legs||[]).map(l=>analyzeOption(l,S));
+  const a={ok:parts.length>0,errors:[],flags:[],shabbat:"ok",shabbatNotes:[],parts,totalH:0,stops:0,carriers:[]};
+  if(legs && parts.length!==legs.length){ a.flags.push({t:"warn",m:`Covers ${parts.length} of ${legs.length} legs`}); }
+  parts.forEach((p,i)=>{ const tag=(opt.legs[i].segments?.[0]?.from||"")+"→"+(opt.legs[i].segments?.slice(-1)[0]?.to||"");
+    if(!p.ok) a.ok=false; a.errors.push(...p.errors.map(e=>tag+": "+e));
+    if(p.shabbat==="violation") a.shabbat="violation"; else if(p.shabbat==="tight"&&a.shabbat==="ok") a.shabbat="tight";
+    a.shabbatNotes.push(...p.shabbatNotes); a.flags.push(...p.flags.map(f=>({t:f.t,m:tag+": "+f.m})));
+    a.totalH+=p.totalH||0; a.stops+=p.stops||0; (p.carriers||[]).forEach(c=>{ if(!a.carriers.includes(c)) a.carriers.push(c); });
+    if(legs&&legs[i]&&(opt.legs[i].segments?.[0]?.from!==legs[i].from||opt.legs[i].segments?.slice(-1)[0]?.to!==legs[i].to)) a.flags.push({t:"warn",m:`Leg ${i+1} route differs from plan`}); });
+  const pref=(S.prefAirlines||[]).map(x=>x.toUpperCase());
+  a.lcc=parts.some(p=>p.lcc); a.selfTransfer=parts.some(p=>p.selfTransfer);
+  a.preferred=a.carriers.length&&a.carriers.every(c=>pref.includes(c))?"all":a.carriers.some(c=>pref.includes(c))?"some":"none";
+  return a;
+}
+function rankOptions(options,S,analyzer){
+  const A=options.map(o=>({o,a:(analyzer||analyzeOption)(o,S)}));
+  const valid=A.filter(x=>x.a.ok && x.a.shabbat!=="violation");
+  // Speed has priority over price: 1 hour of travel time weighs as much as ~$400 of fare.
+  const score=x=>{ const p=priceMid(x.o); return x.a.totalH + (p?p/400:0) + x.a.stops*0.75 + (x.a.shabbat==="tight"?2:0) + x.a.flags.filter(f=>f.t==="warn").length*1.5 - (x.a.preferred==="all"?3:x.a.preferred==="some"?1.5:0); };
+  valid.forEach(x=>x.score=score(x));
+  const pref=valid.filter(x=>x.a.preferred!=="none").sort((a,b)=>a.score-b.score);
+  const others=valid.filter(x=>x.a.preferred==="none").sort((a,b)=>a.score-b.score);
+  const bestT=pref.length?Math.min(...pref.map(x=>x.a.totalH)):Infinity;
+  const prices=pref.map(x=>priceMid(x.o)).filter(Boolean); const bestP=prices.length?Math.min(...prices):Infinity;
+  const highlighted=[], hidden=[];
+  for(const x of others){
+    const p=priceMid(x.o); x.why=[];
+    if(x.a.totalH < bestT-1) x.why.push(`${fmtH(bestT-x.a.totalH)} quicker`);
+    if(p && bestP-p >= (S.cheaperByUSD??50)) x.why.push(`$${Math.round(bestP-p)} cheaper`);
+    if(!pref.length) x.why.push("No LY/TG option found");
+    (x.why.length?highlighted:hidden).push(x);
+  }
+  // quicker options first, then cheaper ones
+  highlighted.sort((a,b)=>(a.a.totalH<bestT-1?0:1)-(b.a.totalH<bestT-1?0:1) || a.a.totalH-b.a.totalH);
+  const conflicts=A.filter(x=>!(x.a.ok && x.a.shabbat!=="violation"));
+  return {pref,highlighted,hidden,conflicts};
+}
+
+</script>
+<script>// ===== App =====
+const HILTON_BRANDS=["Waldorf Astoria","LXR","Conrad","Signia","Canopy","Hilton","Curio Collection","Tapestry Collection","DoubleTree","Embassy Suites","Motto","Tempo","Hilton Garden Inn","Hampton","Homewood Suites","Home2 Suites","Tru","Spark","Graduate","NoMad","LivSmart"];
+const DEFAULT_SETTINGS={hotelRadiusKm:100,cheaperByUSD:50,includeLCC:true,bags:"cabin",selfTransferMin:3,airportTLV:3,airportAbroad:2.5,driveMin:45,chabadLocal:true,home:"TLV",prefAirlines:["LY","TG"],bufBefore:3,bufAfter:3,minConn:1.5,longConn:6,candleMin:18,havdalah:"8.5",cabin:"Economy",brands:HILTON_BRANDS.slice(),extraAirports:{}};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const enc=encodeURIComponent;
+let S=JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+let trip=newTrip();
+let trips=[]; let view="plan"; let dirty=false;
+let sample=null, db=null, col=null, uid=null;
+const busy={};
+
+function newTrip(){ return {id:"t"+Date.now().toString(36),name:"",origin:S?.home||"TLV",departDate:"",returnHome:true,stops:[{code:"",checkin:"",leave:"",address:""}],legs:{},hotels:{},savedAt:null}; }
+function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),2200); }
+function syncExtra(){ Object.assign(EXTRA_AIRPORTS,S.extraAirports||{}); }
+function codeOf(v){ const m=/^\s*([A-Za-z]{3})\b/.exec(v||""); return m?m[1].toUpperCase():""; }
+function aptLabel(c){ const a=apt(c); return a?`${c} — ${a.city}`:(c||""); }
+
+// ---------- legs & constraints ----------
+function computeLegs(t){
+  const legs=[]; let prev=t.origin; const st=t.stops.filter(s=>s.code);
+  st.forEach((s,i)=>{ legs.push({from:prev,to:s.code,date:i===0?t.departDate:st[i-1].leave,stopIdx:t.stops.indexOf(s)}); prev=s.code; });
+  if(t.returnHome && st.length) legs.push({from:prev,to:t.origin,date:st[st.length-1].leave,ret:true});
+  legs.forEach(l=>l.key=`${l.from}-${l.to}-${l.date}`);
+  return legs;
+}
+function legConstraints(leg){
+  const A=apt(leg.from), B=apt(leg.to); const out=[];
+  if(!A||!B||!leg.date) return out;
+  const day0=localToUtc(leg.date+"T00:00",A.tz);
+  const bb=S.bufBefore*3600000, ba=S.bufAfter*3600000;
+  for(const w of holyWindows(A,addDays(leg.date,-1),addDays(leg.date,1),S)){
+    if(w.end>day0-12*3600000 && w.end<day0+36*3600000) out.push({kind:"after",utc:w.end+ba,text:`Depart ${A.city} after ${fmtDT(w.end+ba,A.tz)}`,detail:`${w.name} ends ${fmtTime(w.end,A.tz)} + ${S.bufAfter}h buffer`});
+    if(w.start>=day0 && w.start<day0+36*3600000) out.push({kind:"before",utc:w.start,text:`Depart ${A.city} before ${w.name} (candles ${fmtDT(w.start,A.tz)})`});
+  }
+  for(const w of holyWindows(B,addDays(leg.date,-1),addDays(leg.date,3),S)){
+    if(w.start>day0-6*3600000 && w.start<day0+60*3600000) out.push({kind:"land",utc:w.start-bb,text:`Land in ${B.city} by ${fmtDT(w.start-bb,B.tz)}`,detail:`${w.name} candles ${fmtTime(w.start,B.tz)} − ${S.bufBefore}h buffer`});
+  }
+  return out;
+}
+function whereOnDate(t,dateStr){ // location code where traveler is on given local date (approx)
+  const st=t.stops.filter(s=>s.code&&s.checkin&&s.leave);
+  for(const s of st){ if(dateStr>=s.checkin && dateStr<s.leave) return s.code; }
+  return t.origin;
+}
+function tripWindows(t){
+  const st=t.stops.filter(s=>s.code);
+  const start=t.departDate||st[0]?.checkin; const end=(st.length&&st[st.length-1].leave)||start; if(!start||!end) return [];
+  const out=[]; const seen=new Set();
+  // check each Friday/erev in range at location where we'd be
+  let d=addDays(start,-1);
+  while(d<=addDays(end,1)){
+    const code=whereOnDate(t,d); const L=apt(code); if(L){ for(const w of holyWindows(L,d,d,S)){ const k=w.erev+code; if(w.erev===d && !seen.has(k)){ seen.add(k); out.push({...w,code}); } } }
+    d=addDays(d,1);
+  }
+  return out;
+}
+
+// ---------- AI ----------
+function parseJSON(text){ let s=String(text||"").replace(/```(json)?/g,""); const a=s.indexOf("{"), b=s.lastIndexOf("}"); if(a<0||b<0) throw new Error("No JSON in reply"); return JSON.parse(s.slice(a,b+1)); }
+async function askJSON(prompt,tier){
+  if(!sample) throw new Error("AI is not available in this view");
+  const opts={modelTier:tier||"complex"};
+  if(typeof sample.json==="function"){ try{ return await sample.json(prompt,opts); }catch(e){ if(e&&e.code) throw e; } }
+  const r=await sample(prompt,opts); return parseJSON(r.text);
+}
+function absorbAirports(obj){
+  let n=0; for(const [c,a] of Object.entries(obj||{})){ const C=c.toUpperCase(); if(AIRPORTS[C]||!a||typeof a.lat!=="number"||!a.tz) continue; try{ new Intl.DateTimeFormat("en",{timeZone:a.tz}); }catch{ continue; } S.extraAirports[C]=[a.city||C,(a.country||"").toUpperCase(),a.lat,a.lon,a.tz]; n++; }
+  if(n){ syncExtra(); saveSettings(); }
+}
+async function lookupAirport(code){
+  if(apt(code)||!sample) return !!apt(code);
+  try{ const j=await askJSON(`Give location data for the airport with IATA code "${code}". Reply ONLY JSON: {"airports":{"${code}":{"city":"...","country":"ISO2","lat":0.0,"lon":0.0,"tz":"IANA/Timezone"}}}. If the code doesn't exist reply {"airports":{}}.`,"quick"); absorbAirports(j.airports); }catch(e){}
+  return !!apt(code);
+}
+function windowsText(codes,from,to){
+  const lines=[]; for(const c of codes){ const L=apt(c); if(!L) continue; for(const w of holyWindows(L,from,to,S)) lines.push(`- ${w.name} in ${L.city}: ${fmtDT(w.start,L.tz)} to ${fmtDT(w.end,L.tz)} (local)`); }
+  return lines.join("\n")||"- none in this period";
+}
+async function aiFlights(leg){
+  const A=apt(leg.from),B=apt(leg.to); const cons=legConstraints(leg);
+  const prompt=`You are an airline-schedule expert helping an Israel-based business traveler plan a trip.
+Find up to 8 realistic one-way itinerary options: ${leg.from} (${A.city}) → ${leg.to} (${B.city}), departing on ${leg.date} local time${leg.ret?" (return flight home)":""}. Overnight departures late on the previous evening are fine if they respect the constraints. Cabin: ${S.cabin}.
+Airline preference: the traveler prefers ${S.prefAirlines.join(" and ")} (LY = El Al, TG = Thai Airways). Include every plausible ${S.prefAirlines.join("/")} option first (nonstop or via their hubs/codeshares), then include the best other-airline options that are QUICKER or CHEAPER — shorter total travel time matters more to him than price (travel time = from take-off at the origin to landing at the final destination, layovers included).
+Connections: prefer at least ${S.minConn} hours; avoid very long layovers unless it's the only way.
+${S.includeLCC?`Also include LOW-COST / no-frills airlines (e.g. Wizz Air, Ryanair, easyJet, Israir, Arkia, Blue Bird, flydubai, Air Arabia, Pegasus, AirAsia, VietJet, Scoot, IndiGo) whenever they're cheaper, including self-transfer combinations on separate tickets (allow at least ${S.selfTransferMin}h for self-transfers). For every option give "extrasUSD": the estimated extra cost on top of the fare for ${BAGS[S.bags]} plus a seat (0 for full-service fares that include it).`:"Do NOT include low-cost / no-frills airlines."}
+HARD Shabbat / Jewish holiday constraint — no flight may depart, be in the air, or connect during these windows:
+${windowsText([leg.from,leg.to],addDays(leg.date,-1),addDays(leg.date,2))}
+Planning constraints: ${cons.map(c=>c.text).join("; ")||"none"}. Prefer landing at least ${S.bufBefore}h before Shabbat starts and departing at least ${S.bufAfter}h after it ends.
+Use real, regularly scheduled flight numbers and their typical timetable times as best you know them (local times at each airport). Give a realistic typical fare range in USD.
+Reply with ONLY JSON in exactly this shape:
+{"options":[{"segments":[{"carrier":"LY","flight":"LY81","from":"TLV","to":"BKK","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}],"priceUSD":{"low":0,"high":0},"extrasUSD":0,"notes":"short note e.g. frequency, aircraft, codeshare, what the fare includes"}],
+"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}},
+"caveat":"one sentence on schedule reliability"}
+Include in "airports" every airport code used in any segment.`;
+  const j=await askJSON(prompt,"complex");
+  absorbAirports(j.airports);
+  return {options:Array.isArray(j.options)?j.options:[],caveat:j.caveat||"",at:Date.now()};
+}
+async function aiParse(text,leg){
+  const j=await askJSON(`Extract the flight segments from this itinerary text. The trip leg is around ${leg.date} from ${leg.from} to ${leg.to}. Reply ONLY JSON: {"segments":[{"carrier":"XX","flight":"XX123","from":"AAA","to":"BBB","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}],"priceUSD":{"low":0,"high":0},"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}}}. Times are local at each airport. Use priceUSD null if no price. Include every airport used in "airports".\n\nTEXT:\n${text}`,"default");
+  absorbAirports(j.airports); return j;
+}
+async function aiHotels(stop,idx){
+  const L=apt(stop.code); const nights=stop.checkin&&stop.leave?Math.round((Date.parse(stop.leave)-Date.parse(stop.checkin))/86400000):null;
+  const R=S.hotelRadiusKm||100; const center=stop.address?`the meeting address "${stop.address}"`:`the centre of ${cityOf(stop.code)}`;
+  const prompt=`Recommend up to 10 hotels for a business traveler within ${R} km of ${center} (${L.country}) — this includes nearby towns and suburbs, not only ${cityOf(stop.code)} itself. ONLY hotels from Hilton's portfolio, limited to these brands: ${S.brands.join(", ")}. Never include a hotel farther than ${R} km; "distanceKm" must be the straight-line distance from ${center}.
+Stay: check-in ${stop.checkin||"?"}, check-out ${stop.leave||"?"}${nights?` (${nights} nights)`:""}.
+${stop.address?`Meetings at: "${stop.address}". Rank by convenience to this address (distance/commute), then quality.`:"No meeting address given: rank by convenience for business (central business district, airport access), then quality."}
+Only include hotels you are confident exist and operate under Hilton. Reply with ONLY JSON:
+{"hotels":[{"name":"full official hotel name","brand":"brand","area":"neighborhood","address":"street address","distanceKm":0,"commute":"e.g. 10 min taxi / 8 min walk","rateUSD":{"low":0,"high":0},"why":"one sentence"}],"tip":"one sentence about where to stay in this city"}`;
+  const j=await askJSON(prompt,"complex");
+  const list=(Array.isArray(j.hotels)?j.hotels:[]).filter(h=>h&&h.name&&(h.distanceKm==null||h.distanceKm===""||+h.distanceKm<=R)).sort((a,b)=>(+a.distanceKm||0)-(+b.distanceKm||0));
+  return {results:list,tip:j.tip||"",at:Date.now(),radiusKm:R};
+}
+
+async function aiMulti(legs){
+  const legLines=legs.map((l,i)=>{ const A=apt(l.from),B=apt(l.to); const cons=legConstraints(l).map(c=>c.text).join("; ");
+    return `Leg ${i+1}: ${l.from} (${A.city}) → ${l.to} (${B.city}) on ${l.date}${cons?` — constraints: ${cons}`:""}`; }).join("\n");
+  const codes=[...new Set(legs.flatMap(l=>[l.from,l.to]))];
+  const prompt=`You are an airline-schedule and fares expert helping an Israel-based business traveler book a MULTI-CITY trip as one ticket (or a smart combination of tickets).
+Legs (dates are local departure dates; overnight departures late the previous evening are fine if they respect the constraints):
+${legLines}
+Cabin: ${S.cabin}.
+Airline preference: prefers ${S.prefAirlines.join(" and ")} (LY = El Al, TG = Thai Airways). Put the best ${S.prefAirlines.join("/")} (incl. Star Alliance/codeshare partners operated by them) itineraries first, then other airlines only when QUICKER or CHEAPER overall (quicker matters more than cheaper; travel time = first take-off to final landing, layovers included). Consider single multi-city tickets, open-jaw, and combinations (e.g. one airline's multi-city + a separate regional one-way) and say which in the notes.
+Connections: prefer at least ${S.minConn} hours.
+${S.includeLCC?`Also include LOW-COST / no-frills airlines (e.g. Wizz Air, Ryanair, easyJet, Israir, Arkia, Blue Bird, flydubai, Air Arabia, Pegasus, AirAsia, VietJet, Scoot, IndiGo) whenever they're cheaper, including self-transfer combinations on separate tickets (allow at least ${S.selfTransferMin}h for self-transfers). For every option give "extrasUSD": the estimated extra cost on top of the fare for ${BAGS[S.bags]} plus a seat (0 for full-service fares that include it).`:"Do NOT include low-cost / no-frills airlines."}
+HARD Shabbat / Jewish holiday constraint — no flight may depart, be in the air, or connect during these windows:
+${windowsText(codes,addDays(legs[0].date,-1),addDays(legs[legs.length-1].date,2))}
+Prefer landing at least ${S.bufBefore}h before Shabbat and departing at least ${S.bufAfter}h after it ends.
+Use real, regularly scheduled flight numbers and typical timetable times (local). Give a realistic typical TOTAL fare range in USD for the whole itinerary.
+Propose up to 6 complete itineraries. Reply with ONLY JSON:
+{"options":[{"legs":[{"segments":[{"carrier":"LY","flight":"LY81","from":"TLV","to":"BKK","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}]}],"priceUSD":{"low":0,"high":0},"extrasUSD":0,"ticketing":"e.g. One multi-city ticket on TG","notes":"short"}],
+"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}},"caveat":"one sentence"}
+Each option's "legs" array must have exactly ${legs.length} entries in the order above. Include in "airports" every airport code used.`;
+  const j=await askJSON(prompt,"complex"); absorbAirports(j.airports);
+  return {options:Array.isArray(j.options)?j.options:[],caveat:j.caveat||"",at:Date.now(),sig:legs.map(l=>l.key).join("|")};
+}
+function multiLinks(legs){
+  const q="Multi-city flights "+legs.map(l=>`${l.from} to ${l.to} on ${l.date}`).join(", then ")+` ${S.cabin}`;
+  const k=legs.map(l=>`${l.from}-${l.to}/${l.date}`).join("/");
+  return [["Google Flights (multi-city)",`https://www.google.com/travel/flights?q=${enc(q)}`],["Kayak multi-city (LY/TG)",`https://www.kayak.com/flights/${k}?fs=airlines=${S.prefAirlines.join(",")}&sort=bestflight_a`],["Kayak multi-city (all)",`https://www.kayak.com/flights/${k}?sort=bestflight_a`],["El Al","https://www.elal.com/en/"],["Thai Airways","https://www.thaiairways.com/"]];
+}
+function multiCard(legs){
+  if(legs.length<2 || legs.some(l=>!l.date||!apt(l.from)||!apt(l.to))) return "";
+  const sig=legs.map(l=>l.key).join("|"); const m=trip.multi&&trip.multi.sig===sig?trip.multi:null; const b=busy.multi;
+  const route=[legs[0].from,...legs.map(l=>l.to)].join(" → ");
+  let res="";
+  if(m&&m.ai){
+    const all=m.ai.options; const r=rankOptions(all,S,(o,S)=>analyzeMulti(o,S,legs)); const idx=x=>all.indexOf(x.o);
+    res+=m.ai.caveat?`<div class="note" style="margin-top:10px">ℹ ${esc(m.ai.caveat)}</div>`:"";
+    if(!r.pref.length&&!r.highlighted.length) res+=`<div class="empty">No valid multi-city itineraries — try the links or plan legs individually below.</div>`;
+    if(r.pref.length) res+=`<h3>★ ${esc(S.prefAirlines.join(" / "))} itineraries</h3>`+r.pref.map(x=>multiOpt(x,legs,m,idx(x))).join("");
+    if(r.highlighted.length) res+=`<h3>Other airlines — quicker or cheaper</h3>`+r.highlighted.map(x=>multiOpt(x,legs,m,idx(x))).join("");
+    if(r.hidden.length) res+=`<details class="group"><summary>${r.hidden.length} other itinerar${r.hidden.length>1?"ies":"y"}</summary>${r.hidden.map(x=>multiOpt(x,legs,m,idx(x))).join("")}</details>`;
+    if(r.conflicts.length) res+=`<details class="group"><summary>${r.conflicts.length} excluded (Shabbat conflict or invalid)</summary>${r.conflicts.map(x=>multiOpt(x,legs,m,idx(x))).join("")}</details>`;
+  }
+  return `<div class="card leg multi">
+    <div class="leghead"><div class="route">Whole trip · ${legs.length>2?"multi-city":"round trip"} <span>${esc(route)}</span></div><span class="pill">${legs.length} flights · one search</span></div>
+    <p class="hint" style="margin-top:6px">Search the entire route together — multi-city tickets are often cheaper than separate one-ways. Every leg is checked against Shabbat.</p>
+    <div class="btns"><button class="btn primary" data-act="aimulti" ${!sample||b?"disabled":""}>${b===true?`<span class="spinner"></span> Searching whole trip…`:m&&m.ai&&!m.ai.live?"↻ Search again":"✦ Find best multi-city itineraries"}</button>
+      ${!STANDALONE&&mcp?`<button class="btn" data-act="livemulti" ${!sample||b?"disabled":""}>${b==="live"?`<span class="spinner"></span> Searching Kiwi.com…`:"⚡ Live whole-trip search (Kiwi.com)"}</button>`:""}
+      ${STANDALONE?`<a class="btn" target="_blank" rel="noopener" href="${claudeLink(liveSearchPrompt(legs))}">⚡ Live whole trip in Claude ↗</a>`:""}</div>
+    ${m&&m.ai&&m.ai.live?`<div class="note" style="margin-top:8px">⚡ Live from Kiwi.com · ${fmtAgo(m.ai.at)}</div>`:""}
+    <div class="links">${multiLinks(legs).map(([n,u])=>`<a class="btn small" target="_blank" rel="noopener" href="${u}">${esc(n)} ↗</a>`).join("")}</div>
+    ${res}</div>`;
+}
+function multiOpt(x,legs,m,idx){
+  const a=x.a,o=x.o; const sel=m.selected===idx;
+  const p=o.priceUSD; const price=p&&(p.low||p.high)?`$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:"";
+  const tags=[];
+  if(a.preferred==="all") tags.push(`<span class="pill gold">★ Preferred airline</span>`); else if(a.preferred==="some") tags.push(`<span class="pill gold">☆ Partly ${S.prefAirlines.join("/")}</span>`);
+  tags.push(...lccTags(a,o));
+  tags.push(a.shabbat==="ok"?`<span class="pill ok">✓ All legs Shabbat-safe</span>`:a.shabbat==="tight"?`<span class="pill warn">⚠ Tight to Shabbat</span>`:`<span class="pill bad">✕ Shabbat conflict</span>`);
+  (a.flags||[]).forEach(f=>tags.push(`<span class="pill ${f.t==="bad"?"bad":f.t==="warn"?"warn":"gray"}">${esc(f.m)}</span>`));
+  (x.why||[]).forEach(w=>tags.push(`<span class="pill ok">${esc(w)}</span>`));
+  (a.errors||[]).forEach(e=>tags.push(`<span class="pill bad">${esc(e)}</span>`));
+  const legHtml=(o.legs||[]).map((l,i)=>{ const pa=a.parts[i]||{}; const segs=pa.segs||l.segments||[];
+    const line=segs.map(s=>{ const A=apt(s.from),B=apt(s.to); return `<li><span class="fn">${esc(s.flight||"")}</span><span>${esc(s.from)} ${A&&s.depU?fmtDT(s.depU,A.tz):esc(s.dep)} → ${esc(s.to)} ${B&&s.arrU?fmtDT(s.arrU,B.tz):esc(s.arr)}</span></li>`; }).join("");
+    const st=pa.shabbat==="ok"?"✓":pa.shabbat==="tight"?"⚠":"✕";
+    const lg=legs[i]||{from:segs[0]?.from,to:segs[segs.length-1]?.to,date:(segs[0]?.dep||"").slice(0,10)};
+    return `<div class="meta" style="margin-top:8px;font-weight:600">Leg ${i+1} · ${esc(segs[0]?.from||"")} → ${esc(segs[segs.length-1]?.to||"")} ${pa.totalH?"· "+fmtH(pa.totalH):""} ${st}</div><ul class="segs">${line}</ul>${toolLinks({segments:segs},lg)}`; }).join("");
+  const fl=(o.legs||[]).flatMap(l=>(l.segments||[]).map(s=>s.flight)).filter(Boolean).join(" ");
+  return `<div class="opt ${sel?"sel":""}">
+    <div class="ohead"><div><div class="title">${esc((a.carriers||[]).join(" + "))} · ${fmtH(a.totalH||0)} total travel time</div><div class="meta">${esc(o.ticketing||"")}</div></div><div class="price">${price||"—"}<small>${price?(o.source==="kiwi"?"live total":"typical total"):""}</small></div></div>
+    ${legHtml}
+    <div class="tags">${tags.join("")}</div>
+    ${a.shabbatNotes?.length?`<div class="note">${a.shabbatNotes.map(esc).join("<br>")}</div>`:""}
+    ${o.notes?`<div class="note">${esc(o.notes)}</div>`:""}
+    <div class="btns" style="margin-top:8px">${o.bookingUrl?`<a class="btn small ghost" target="_blank" rel="noopener" href="${esc(o.bookingUrl)}">Book on Kiwi.com ↗</a>`:""}<button class="btn small ${sel?"primary":""}" data-act="pickmulti" data-idx="${idx}">${sel?"✓ Selected for all legs":"Select whole itinerary"}</button>
+    <a class="btn small ghost" target="_blank" rel="noopener" href="https://www.google.com/travel/flights?q=${enc("Multi-city flights "+legs.map(l=>`${l.from} to ${l.to} on ${l.date}`).join(", ")+" "+fl)}">Check fares ↗</a></div></div>`;
+}
+
+function gettUrl(code){ const a=apt(code); return a&&a.country==="IL"?"https://gett.com/il/":"https://gett.com/"; }
+function groundBlock(leg,st){
+  const o=st.selected; if(!o) return "";
+  const a=analyzeOption(o,S); if(!a.ok) return "";
+  const A=apt(o.segments[0].from), B=apt(o.segments[o.segments.length-1].to);
+  const checkin=(A.country==="IL"?S.airportTLV:S.airportAbroad)*3600000, drive=S.driveMin*60000;
+  const pick=a.depU-checkin-drive, land=a.arrU+45*60000;
+  const fromWhere=computeLegs(trip)[0].key===leg.key?"home":"your hotel";
+  return `<h3>🚕 Gett & ground transfers</h3>
+   <div class="sh"><div class="ic" style="background:#ffd400;color:#14213d">🚕</div><div style="flex:1"><b>Pickup to ${esc(cityOf(A.code))} airport · ${fmtDT(pick,A.tz)}</b><small>From ${fromWhere}: ${S.driveMin} min drive + ${A.country==="IL"?S.airportTLV:S.airportAbroad}h before departure</small></div><a class="btn small" target="_blank" rel="noopener" href="${gettUrl(A.code)}">Open Gett ↗</a></div>
+   <div class="sh" style="margin-top:8px"><div class="ic" style="background:#ffd400;color:#14213d">🚕</div><div style="flex:1"><b>Pickup at ${esc(cityOf(B.code))} airport · ~${fmtDT(land,B.tz)}</b><small>About 45 min after landing (immigration & bags)</small></div><a class="btn small" target="_blank" rel="noopener" href="${gettUrl(B.code)}">Open Gett ↗</a></div>`;
+}
+
+const BAGS={personal:"a small under-seat personal item only",cabin:"a cabin trolley (up to ~10 kg)",checked:"a cabin trolley plus one checked bag (~23 kg)"};
+function lccTags(a,o){ const t=[]; if(a.lcc) t.push(`<span class="pill" style="background:#f1e8ff;color:#6b2bb8">Low-cost</span>`); if(+o.extrasUSD>0) t.push(`<span class="pill gray">+~$${Math.round(o.extrasUSD)} bags & seat</span>`); return t; }
+// ---------- links ----------
+function flightLinks(leg){
+  const d=leg.date, f=leg.from, t=leg.to, yy=d.replaceAll("-","").slice(2);
+  const cab=S.cabin.toLowerCase().replace(" ","");
+  return [
+    ["Google Flights",`https://www.google.com/travel/flights?q=${enc(`Flights from ${f} to ${t} on ${d} one way ${S.cabin}`)}`],
+    ["Kayak (LY/TG)",`https://www.kayak.com/flights/${f}-${t}/${d}?fs=airlines=${S.prefAirlines.join(",")}&sort=bestflight_a`],
+    ["Kayak (all)",`https://www.kayak.com/flights/${f}-${t}/${d}?sort=bestflight_a`],
+    ["Skyscanner",`https://www.skyscanner.net/transport/flights/${f.toLowerCase()}/${t.toLowerCase()}/${yy}/?adultsv2=1&cabinclass=${cab==="premiumeconomy"?"premiumeconomy":cab}`],
+    ["El Al","https://www.elal.com/en/"],["Thai Airways","https://www.thaiairways.com/"],
+    ...(S.includeLCC?[["Kiwi.com (low-cost combos)","https://www.kiwi.com/"],["Wizz Air","https://wizzair.com/"],["Ryanair","https://www.ryanair.com/"],["easyJet","https://www.easyjet.com/"],["Israir","https://www.israir.co.il/"],["Arkia","https://www.arkia.com/"]]:[]),
+  ];
+}
+// ---------- "Where to book" list (provider rows like a metasearch results page) ----------
+const AIRLINE_SITES={LY:["El Al","https://www.elal.com/en/"],TG:["Thai Airways","https://www.thaiairways.com/"],PG:["Bangkok Airways","https://www.bangkokair.com/"],"5J":["Cebu Pacific","https://www.cebupacificair.com/"],
+ EY:["Etihad Airways","https://www.etihad.com/"],EK:["Emirates","https://www.emirates.com/"],QR:["Qatar Airways","https://www.qatarairways.com/"],TK:["Turkish Airlines","https://www.turkishairlines.com/"],
+ W6:["Wizz Air","https://wizzair.com/"],W4:["Wizz Air","https://wizzair.com/"],FR:["Ryanair","https://www.ryanair.com/"],U2:["easyJet","https://www.easyjet.com/"],"6H":["Israir","https://www.israir.co.il/"],IZ:["Arkia","https://www.arkia.com/"],BZ:["Blue Bird","https://www.bluebirdair.com/"],
+ G9:["Air Arabia","https://www.airarabia.com/"],FZ:["flydubai","https://www.flydubai.com/"],A3:["Aegean","https://en.aegeanair.com/"],LH:["Lufthansa","https://www.lufthansa.com/"],BA:["British Airways","https://www.britishairways.com/"],
+ AF:["Air France","https://www.airfrance.com/"],KL:["KLM","https://www.klm.com/"],SQ:["Singapore Airlines","https://www.singaporeair.com/"],CX:["Cathay Pacific","https://www.cathaypacific.com/"],GF:["Gulf Air","https://www.gulfair.com/"],
+ ET:["Ethiopian Airlines","https://www.ethiopianairlines.com/"],AI:["Air India","https://www.airindia.com/"],FD:["AirAsia","https://www.airasia.com/"],AK:["AirAsia","https://www.airasia.com/"],VJ:["VietJet","https://www.vietjetair.com/"],
+ TR:["Scoot","https://www.flyscoot.com/"],IB:["Iberia","https://www.iberia.com/"],GQ:["SKY express","https://www.skyexpress.gr/"],PC:["Pegasus","https://www.flypgs.com/"],MH:["Malaysia Airlines","https://www.malaysiaairlines.com/"],VN:["Vietnam Airlines","https://www.vietnamairlines.com/"],PR:["Philippine Airlines","https://www.philippineairlines.com/"],"6E":["IndiGo","https://www.goindigo.in/"]};
+function bookingRows(o,leg){
+  const segs=o.segments||[]; const d=(segs[0]?.dep||leg.date||"").slice(0,10); const f=segs[0]?.from||leg.from, t=segs[segs.length-1]?.to||leg.to;
+  const p=o.priceUSD; const price=p&&(p.low||p.high)?Math.round(p.low||p.high):null;
+  const rows=[];
+  if(o.bookingUrl) rows.push({name:"Kiwi.com",tag:"Live price",price:price!=null?`$${price.toLocaleString()}`:"",url:o.bookingUrl,note:"Price from this search"});
+  const carriers=[...new Set(segs.map(s=>(s.carrier||(s.flight||"").slice(0,2)).toUpperCase()))];
+  carriers.forEach(c=>{ const a=AIRLINE_SITES[c]; if(a) rows.push({name:a[0],tag:"Airline",url:a[1],note:carriers.length>1?"Books its own flights only":"Book direct, earn miles"}); });
+  const yy=d.replaceAll("-","").slice(2);
+  rows.push({name:"Google Flights",tag:"Compare",url:optionLink(o,leg),note:"Shows airline-direct prices"});
+  rows.push({name:"Skyscanner",tag:"Compare",url:`https://www.skyscanner.net/transport/flights/${f.toLowerCase()}/${t.toLowerCase()}/${yy}/?adultsv2=1`,note:"Many agencies side by side"});
+  rows.push({name:"Kayak",tag:"Compare",url:`https://www.kayak.com/flights/${f}-${t}/${d}?sort=bestflight_a`,note:"Price alerts available"});
+  rows.push({name:"Gulliver",tag:"Israeli agency",url:"https://www.gulliver.co.il/",note:"Hebrew support"});
+  rows.push({name:"Issta",tag:"Israeli agency",url:"https://www.issta.co.il/",note:"Hebrew support"});
+  return rows;
+}
+function bookingList(o,leg,open){
+  const rows=bookingRows(o,leg);
+  const html=rows.map(r=>`<div class="prov"><div><b>${esc(r.name)}</b> <span class="pill ${r.tag==="Live price"?"ok":r.tag==="Airline"?"gold":"gray"}">${esc(r.tag)}</span><div class="meta">${esc(r.note||"")}</div></div>
+    <div class="pprice">${r.price?esc(r.price):`<span class="meta">Check price</span>`}</div>
+    <a class="gobtn" target="_blank" rel="noopener" href="${esc(r.url)}">Go to site →</a></div>`).join("");
+  return `<details class="group booking" ${open?"open":""}><summary>Where to book · ${rows.length} sites</summary><div class="provs">${html}</div>
+    <div class="note">Only Kiwi.com's price comes live into the planner; other sites show their price when you open them.</div></details>`;
+}
+
+// Extra research tools for a specific itinerary (no public price APIs exist for these, so they're links)
+function itaRouting(o){ return (o.segments||[]).map(s=>(s.flight||"").replace(/\s/g,"").toUpperCase()).filter(Boolean).join(" "); }
+function toolLinks(o,leg){
+  const segs=o.segments||[]; if(!segs.length) return "";
+  const fc=segs.map(s=>`<a class="btn small ghost" target="_blank" rel="noopener" href="https://www.flightconnections.com/flights-from-${enc((s.from||"").toLowerCase())}-to-${enc((s.to||"").toLowerCase())}" title="Who flies ${esc(s.from)}→${esc(s.to)}, how often, on which days">🗺 ${esc(s.from)}→${esc(s.to)} schedule</a>`).join("");
+  const routing=itaRouting(o); const d=(segs[0].dep||leg.date||"").slice(0,10);
+  const sm=segs.filter(s=>s.flight).map(s=>{ const fn=(s.flight||"").replace(/\s/g,"").toUpperCase(); const sd=(s.dep||leg.date||"").slice(0,10);
+    const on=trip.seatAlert&&trip.seatAlert.flight===fn&&trip.seatAlert.date===sd;
+    const det=`${fn.slice(0,2)} ${fn.slice(2)} · ${s.from} → ${s.to} · ${sd}`;
+    return `<a class="btn small ghost" target="_blank" rel="noopener" href="https://flightseatmap.com/flights/${enc(fn)}?FLIGHT_DATE=${enc(sd)}" title="Seat map for ${esc(fn)} on ${esc(sd)}">💺 Seat map ${esc(fn)} ↗</a>
+      <a class="btn small ${on?"primary":"ghost"}" target="_blank" rel="noopener" href="https://www.expertflyer.com/seat-alerts" data-act="seatalert" data-flight="${esc(fn)}" data-date="${esc(sd)}" data-from="${esc(s.from)}" data-to="${esc(s.to)}" data-txt="${esc(det)}" title="Free ExpertFlyer alert when a window or aisle seat opens">${on?"🔔 Window/aisle alert set":"🔔 Window/aisle alert"} ${esc(fn)} ↗</a>`; }).join("");
+  const hasAlert=segs.some(x=>trip.seatAlert&&trip.seatAlert.flight===(x.flight||"").replace(/\s/g,"").toUpperCase());
+  return `<details class="group" style="margin-top:6px" ${hasAlert?"open":""}><summary>Check seats & fares elsewhere${hasAlert?" · 🔔 seat alert":""}</summary>
+    <div class="links">
+      ${sm}
+      <a class="btn small ghost" target="_blank" rel="noopener" href="https://matrix.itasoftware.com/search">💲 Fares & rules (ITA Matrix) ↗</a>
+      <button class="btn small ghost" data-act="copytxt" data-txt="${esc(`${leg.from} → ${leg.to}, ${d}, routing code: ${routing}`)}">Copy ITA routing (${esc(routing)})</button>
+      ${fc}
+    </div>
+    <div class="note">🔔 Window/aisle alert opens ExpertFlyer's free plan (sign up once; 1 active alert at a time) and copies the flight details — choose "Create Seat Alert", paste, pick Any Window Seat or Any Aisle Seat, and ExpertFlyer emails you when one opens. Seat map (FlightSeatmap) is free for viewing seat maps — skip any paid "live check" upgrade it offers; ITA Matrix shows fares and fare rules (book elsewhere); FlightConnections shows who flies each route and on which days. The El Al / Thai app's own seat map is the most accurate free check.</div></details>`;
+}
+function optionLink(o,leg){ const fl=(o.segments||[]).map(s=>s.flight).filter(Boolean).join(" "); return `https://www.google.com/travel/flights?q=${enc(`Flights from ${leg.from} to ${leg.to} on ${leg.date} ${fl}`)}`; }
+function hotelLinks(stop){ const L=apt(stop.code); const c=L?L.city.replace(/ (Heathrow|Gatwick|City|Luton|CDG|Orly|JFK|Dulles|Incheon|Narita|Haneda|Sabiha|Don Mueang|\(Ramon\))$/,""):stop.code;
+  return [["Hilton Honors app/account","https://www.hilton.com/en/hilton-honors/login/"],["Hilton.com",`https://www.hilton.com/en/search/?query=${enc(c)}&arrivalDate=${stop.checkin}&departureDate=${stop.leave}&numRooms=1&numAdults=1`],["Google Hotels",`https://www.google.com/travel/hotels/${enc(c)}?q=${enc("Hilton hotels "+c)}`],["Booking.com",`https://www.booking.com/searchresults.html?ss=${enc("Hilton "+c)}&checkin=${stop.checkin}&checkout=${stop.leave}`]]; }
+function cityOf(code){ const L=apt(code); return L?L.city.replace(/ (Heathrow|Gatwick|City|Luton|CDG|Orly|JFK|Dulles|Incheon|Narita|Haneda|Sabiha|Don Mueang|\(Ramon\))$/,""):code; }
+
+// ---------- custom calendar date fields (future dates only) ----------
+function dateText(v){ if(!v) return ""; const [y]=v.split("-"); return dayLabel(v)+" "+y; }
+function getD(el){ return el?(el.dataset.value||""):""; }
+function setD(el,v){ if(!el) return; el.dataset.value=v||""; el.value=dateText(v); }
+function minFor(el){
+  const t=todayIL(); let m=t;
+  if(el.dataset.f==="checkin"){ m=[t,getD($("#departDate"))].filter(Boolean).sort().pop(); }
+  if(el.dataset.f==="leave"){ const st=el.closest(".stop"); m=[t,getD($("#departDate")),getD(st&&st.querySelector('[data-f="checkin"]'))].filter(Boolean).sort().pop(); }
+  return m;
+}
+let calEl=null, calInput=null, calMonth=null;
+function closeCal(){ if(calEl){ calEl.remove(); calEl=null; calInput=null; } }
+function openCal(inp){
+  closeCal(); calInput=inp; const min=minFor(inp); const cur=getD(inp)||min; calMonth=cur.slice(0,7);
+  calEl=document.createElement("div"); calEl.className="cal"; document.body.appendChild(calEl); drawCal();
+  const r=inp.getBoundingClientRect();
+  if(window.innerWidth>640){ calEl.style.left=Math.min(window.scrollX+r.left, window.scrollX+window.innerWidth-calEl.offsetWidth-8)+"px"; calEl.style.top=(window.scrollY+r.bottom+6)+"px"; }
+  else calEl.classList.add("sheet");
+}
+function drawCal(){
+  const min=minFor(calInput), sel=getD(calInput); const [y,m]=calMonth.split("-").map(Number);
+  const first=ymd(y,m,1), days=new Date(Date.UTC(y,m,0)).getUTCDate(), lead=weekday(first);
+  const prevOk=calMonth>min.slice(0,7);
+  let cells=""; for(let i=0;i<lead;i++) cells+=`<span></span>`;
+  for(let d=1;d<=days;d++){ const v=ymd(y,m,d); const dis=v<min; const ev=jewishDay(v,true); const wd=weekday(v);
+    const big=ev.some(e=>e.kind==="yomtov")||wd===6; const other=!big&&ev.some(e=>e.kind!=="minor"); const minor=!big&&!other&&ev.length;
+    const tip=[wd===6?"Shabbat":"",...ev.map(e=>e.name)].filter(Boolean).join(", ");
+    cells+=`<button type="button" class="cd ${dis?"dis":""} ${v===sel?"sel":""} ${v===todayIL()?"today":""} ${wd===5||wd===6?"we":""}" data-cal="${v}" ${dis?"disabled":""} title="${esc(tip)}">${d}${big?'<i class="dot red"></i>':other?'<i class="dot amb"></i>':minor?'<i class="dot gray"></i>':""}</button>`; }
+  calEl.innerHTML=`<div class="calh"><button type="button" data-calnav="-1" ${prevOk?"":"disabled"}>‹</button><b>${MON[m-1]} ${y}</b><button type="button" data-calnav="1">›</button></div>
+   <div class="calg">${["S","M","T","W","T","F","S"].map(x=>`<span class="dh">${x}</span>`).join("")}${cells}</div>
+   <div class="calk"><span><i class="dot red"></i>Shabbat / Yom Tov</span><span><i class="dot amb"></i>Holiday / fast / national day</span>${getD(calInput)?`<button type="button" data-calclear="1">Clear</button>`:""}</div>`;
+}
+document.addEventListener("click",e=>{
+  const inp=e.target.closest("input.datepick"); if(inp){ e.preventDefault(); if(calInput===inp) closeCal(); else openCal(inp); return; }
+  if(!calEl) return;
+  const nav=e.target.closest("[data-calnav]"); if(nav){ const [y,m]=calMonth.split("-").map(Number); const d=new Date(Date.UTC(y,m-1+(+nav.dataset.calnav),1)); calMonth=d.toISOString().slice(0,7); drawCal(); return; }
+  const day=e.target.closest("[data-cal]"); if(day&&!day.disabled){ const inp2=calInput; setD(inp2,day.dataset.cal); closeCal(); inp2.dispatchEvent(new Event("change",{bubbles:true})); return; }
+  if(e.target.closest("[data-calclear]")){ const inp2=calInput; setD(inp2,""); closeCal(); inp2.dispatchEvent(new Event("change",{bubbles:true})); return; }
+  if(!e.target.closest(".cal")) closeCal();
+},true);
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeCal(); });
+
+// ---------- holidays colliding with the trip ----------
+function tripHolidays(t){
+  const st=t.stops.filter(s=>s.code); const start=t.departDate||st[0]?.checkin; const end=tripEnd(t)||start; if(!start) return [];
+  const groups=[]; let d=start;
+  while(d<=end){
+    const code=whereOnDate(t,d); const L=apt(code); const israel=!L||L.country==="IL";
+    jewishDay(d,israel).forEach(ev=>{ const base=ev.name.replace(/ \(day \d+\)$/,""); const g=groups.find(g=>g.name===base&&g.code===code&&addDays(g.to,1)===d);
+      if(g) g.to=d; else groups.push({name:base,kind:ev.kind,from:d,to:d,code,city:L?cityOf(code):code,israel}); });
+    if(!israel){ jewishDay(d,true).filter(ev=>ev.kind==="israeli").forEach(ev=>{ if(!groups.some(g=>g.name===ev.name)) groups.push({name:ev.name,kind:"israeli",from:d,to:d,code:"TLV",city:"Israel",israel:true,home:true}); }); }
+    d=addDays(d,1);
+  }
+  const advice={yomtov:"Yom Tov — no travel (treated like Shabbat in flight checks)",erev:"Erev chag — be settled before candle-lighting; airports and roads are busy",cholhamoed:"Chol HaMoed — many Israeli offices closed or on short hours; check meeting availability",fast:"Fast day — plan meetings and meals accordingly",israeli:"Israeli national day — offices in Israel may be closed; check meetings with Israeli colleagues",minor:"Holiday — no travel restrictions"};
+  return groups.map(g=>({...g,advice:advice[g.kind]||""}));
+}
+function holidayBanner(){
+  const hs=tripHolidays(trip); const el=$("#holidayWarn"); if(!el) return;
+  if(!hs.length){ el.innerHTML=""; el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  el.innerHTML=`<b>⚠ ${hs.length} Jewish/Israeli holiday${hs.length>1?"s":""} during this trip</b><ul>${hs.map(h=>`<li><b>${esc(h.name)}</b> · ${dayLabel(h.from)}${h.to!==h.from?" – "+dayLabel(h.to):""} · ${h.home?"in Israel":"you'll be in "+esc(h.city)} — ${esc(h.advice)}</li>`).join("")}</ul>`;
+}
+
+// ---------- render: plan form ----------
+function renderForm(){
+  const t=trip;
+  $("#tripName").value=t.name; $("#origin").value=aptLabel(t.origin); setD($("#departDate"),t.departDate); $("#returnHome").checked=t.returnHome;
+  $("#stops").innerHTML=t.stops.map((s,i)=>`
+   <div class="stop" data-i="${i}">
+    <div class="top"><span class="num">Stop ${i+1}</span>${t.stops.length>1?`<button class="btn ghost small danger" data-act="rmstop" data-i="${i}">Remove</button>`:""}</div>
+    <label>Destination airport</label><input list="apts" data-f="code" value="${esc(aptLabel(s.code))}" placeholder="e.g. BKK — Bangkok" autocomplete="off">
+    <div class="row"><div><label>Hotel check-in</label><input type="text" readonly class="datepick" placeholder="Pick a date" data-f="checkin" data-value="${esc(s.checkin)}" value="${esc(dateText(s.checkin))}"></div><div><label>Leave on</label><input type="text" readonly class="datepick" placeholder="Pick a date" data-f="leave" data-value="${esc(s.leave)}" value="${esc(dateText(s.leave))}"></div></div>
+    <label>Meeting address (optional)</label><input data-f="address" value="${esc(s.address)}" placeholder="Office / venue address — used to rank hotels">
+   </div>`).join("");
+}
+function readForm(){
+  trip.name=$("#tripName").value.trim(); trip.origin=codeOf($("#origin").value)||S.home; trip.departDate=getD($("#departDate")); trip.returnHome=$("#returnHome").checked;
+  document.querySelectorAll("#stops .stop").forEach(el=>{ const s=trip.stops[+el.dataset.i]; el.querySelectorAll("[data-f]").forEach(inp=>{ const f=inp.dataset.f; s[f]= f==="code"?codeOf(inp.value):inp.classList.contains("datepick")?getD(inp):inp.value; }); });
+}
+async function onFormChange(e){
+  readForm(); dirty=true;
+  const el=e?.target;
+  if(el && el.dataset.f==="leave"){ // auto-fill next stop check-in
+    const i=+el.closest(".stop").dataset.i; const nx=trip.stops[i+1]; if(nx && !nx.checkin){ nx.checkin=getD(el); renderForm(); }
+  }
+  if(el && el.id==="departDate" && trip.stops[0] && !trip.stops[0].checkin){ trip.stops[0].checkin=getD(el); renderForm(); }
+  // unknown airport codes
+  const codes=[trip.origin,...trip.stops.map(s=>s.code)].filter(Boolean);
+  for(const c of codes){ if(!apt(c)){ if(sample){ toast(`Looking up airport ${c}…`); const ok=await lookupAirport(c); toast(ok?`Added ${aptLabel(c)}`:`Unknown airport ${c}`); if(ok) renderForm(); } else toast(`Unknown airport ${c} — use a 3-letter IATA code from the list`); } }
+  const sig=JSON.stringify([trip.origin,trip.departDate,trip.returnHome,trip.stops.map(s=>[s.code,s.checkin,s.leave])]);
+  if(sig!==onFormChange._sig){ onFormChange._sig=sig; renderPlan(); } else renderSummary();
+}
+
+// ---------- render: dynamic sections ----------
+let _watchTrip=null;
+function renderPlan(){ holidayBanner(); renderShabbat(); renderLegs(); renderHotels(); renderSummary(); if(_watchTrip!==trip.id){ _watchTrip=trip.id; watchSub(); } renderWatch(); }
+function renderShabbat(){
+  const ws=tripWindows(trip);
+  const el=$("#shabbatList");
+  if(!trip.departDate && !trip.stops[0]?.checkin){ el.innerHTML=`<div class="empty">Add dates to see Shabbat and holiday times along your route.</div>`; return; }
+  const hs=tripHolidays(trip).filter(h=>h.kind!=="yomtov");
+  const hHtml=hs.map(h=>`<div class="sh"><div class="ic" style="background:${h.kind==="minor"?"#5b6b85":"#a35a00"};color:#fff">${h.kind==="fast"?"⏳":h.kind==="israeli"?"🇮🇱":"🕎"}</div><div style="flex:1"><b>${esc(h.name)} · ${h.home?"Israel":esc(h.city)}</b><small>${dayLabel(h.from)}${h.to!==h.from?" – "+dayLabel(h.to):""} · ${esc(h.advice)}</small></div></div>`).join("");
+  if(!ws.length){ el.innerHTML=hHtml||`<div class="empty">No Shabbat or holiday falls during this trip.</div>`; return; }
+  el.innerHTML=ws.map(w=>{ const L=w.loc; return `<div class="sh"><div class="ic">✡</div><div style="flex:1"><b>${esc(w.name)} · ${esc(L.city)}</b>
+    <small>Candles ${fmtDT(w.start,L.tz)} · Ends ${fmtDT(w.end,L.tz)}</small></div>
+    <a class="btn ghost small" target="_blank" rel="noopener" href="${chabadUrl(w.code)}">Chabad.org ↗</a></div>`; }).join("")+hHtml;
+}
+function legState(key){ return trip.legs[key]||(trip.legs[key]={}); }
+function optCard(x,leg,st,idx,extraTags=""){
+  const a=x.a,o=x.o; const sel=st.selected && JSON.stringify(st.selected.segments)===JSON.stringify(o.segments);
+  const segs=a.segs||o.segments||[];
+  const p=o.priceUSD; const price=p&&(p.low||p.high)?`$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:"";
+  const tags=[];
+  if(a.preferred==="all") tags.push(`<span class="pill gold">★ Preferred airline</span>`); else if(a.preferred==="some") tags.push(`<span class="pill gold">☆ Partly ${S.prefAirlines.join("/")}</span>`);
+  if(o.source==="kiwi") tags.push(`<span class="pill ok">⚡ Live price</span>`);
+  tags.push(...lccTags(a,o));
+  if(a.ok){ tags.push(a.stops===0?`<span class="pill">Nonstop</span>`:`<span class="pill gray">${a.stops} stop${a.stops>1?"s":""}</span>`); }
+  tags.push(a.shabbat==="ok"?`<span class="pill ok">✓ Shabbat-safe</span>`:a.shabbat==="tight"?`<span class="pill warn">⚠ Tight to Shabbat</span>`:`<span class="pill bad">✕ Shabbat conflict</span>`);
+  (a.flags||[]).forEach(f=>tags.push(`<span class="pill ${f.t==="bad"?"bad":f.t==="warn"?"warn":"gray"}">${esc(f.m)}</span>`));
+  (x.why||[]).forEach(w=>tags.push(`<span class="pill ok">${esc(w)}</span>`));
+  (a.errors||[]).forEach(e=>tags.push(`<span class="pill bad">${esc(e)}</span>`));
+  let segHtml="";
+  segs.forEach((s,i)=>{ const A=apt(s.from),B=apt(s.to);
+    if(i>0 && a.conns && a.conns[i-1]) segHtml+=`<li class="conn" style="display:block">⏱ ${fmtH(a.conns[i-1].h)} connection in ${esc(cityOf(s.from))}</li>`;
+    segHtml+=`<li><span class="fn">${esc(s.flight||s.carrier||"")}</span><span>${esc(s.from)} ${A&&s.depU?fmtDT(s.depU,A.tz):esc(s.dep)} → ${esc(s.to)} ${B&&s.arrU?fmtDT(s.arrU,B.tz):esc(s.arr)}${s.durH?` <span class="meta">(${fmtH(s.durH)})</span>`:""}</span></li>`; });
+  return `<div class="opt ${sel?"sel":""}">
+   <div class="ohead"><div><div class="title">${esc((a.carriers||[]).join(" + ")||"Flight")} · ${a.totalH?fmtH(a.totalH):""}</div><div class="meta">${a.depU?`Dep ${fmtDT(a.depU,apt(segs[0].from).tz)} · Arr ${fmtDT(a.arrU,apt(segs[segs.length-1].to).tz)}`:""}</div></div>
+   <div class="price">${price||"—"}<small>${price?(o.source==="kiwi"?"live fare":"typical fare"):""}</small></div></div>
+   <ul class="segs">${segHtml}</ul>
+   <div class="tags">${tags.join("")}</div>
+   ${a.shabbatNotes?.length?`<div class="note">${a.shabbatNotes.map(esc).join("<br>")}</div>`:""}
+   ${o.notes?`<div class="note">${esc(o.notes)}</div>`:""}
+   ${bookingList(o,leg,sel)}
+   ${toolLinks(o,leg)}
+   <div class="btns" style="margin-top:8px">
+     <button class="btn small ${sel?"primary":""}" data-act="pick" data-leg="${esc(leg.key)}" data-src="${extraTags}" data-idx="${idx}">${sel?"✓ Selected":"Select"}</button>
+     ${o.bookingUrl?`<a class="btn small ghost" target="_blank" rel="noopener" href="${esc(o.bookingUrl)}">Book on Kiwi.com ↗</a>`:`<a class="btn small ghost" target="_blank" rel="noopener" href="${optionLink(o,leg)}">Check fares ↗</a>`}
+   </div></div>`;
+}
+function renderLegs(){
+  const legs=computeLegs(trip); const el=$("#legs");
+  if(!legs.length){ el.innerHTML=`<div class="card"><div class="empty">Add a destination to start planning flights.</div></div>`; return; }
+  el.innerHTML=multiCard(legs)+(legs.length>1?`<h3 style="margin:4px 2px -6px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.5px">Or plan each flight separately</h3>`:"")+legs.map((leg,li)=>{
+    const A=apt(leg.from),B=apt(leg.to); const st=legState(leg.key);
+    if(!A||!B||!leg.date) return `<div class="card"><div class="leghead"><div class="route">${esc(leg.from)} → ${esc(leg.to)}</div></div><div class="empty">${!leg.date?"Set the travel date for this leg.":"Unknown airport — pick one from the list."}</div></div>`;
+    const cons=legConstraints(leg);
+    const dow=weekday(leg.date);
+    const consHtml=cons.map(c=>`<span class="pill ${c.kind==="before"?"bad":"warn"}" title="${esc(c.detail||"")}">${esc(c.text)}</span>`).join("") || `<span class="pill ok">No Shabbat constraints on this date</span>`;
+    let results="";
+    if(st.ai){
+      const all=st.ai.options; const r=rankOptions(S.includeLCC?all:all.filter(o=>!analyzeOption(o,S).lcc),S);
+      const tag=x=>all.indexOf(x.o);
+      results+=st.ai.caveat?`<div class="note" style="margin-top:10px">ℹ ${esc(st.ai.caveat)}</div>`:"";
+      if(!r.pref.length && !r.highlighted.length) results+=`<div class="empty">No valid options found. Try the search links, or enter a flight below.</div>`;
+      if(r.pref.length) results+=`<h3>★ ${esc(S.prefAirlines.join(" / "))} options</h3>`+r.pref.map(x=>optCard(x,leg,st,tag(x),"ai")).join("");
+      if(r.highlighted.length) results+=`<h3>Other airlines — quicker or cheaper</h3>`+r.highlighted.map(x=>optCard(x,leg,st,tag(x),"ai")).join("");
+      if(r.hidden.length) results+=`<details class="group"><summary>${r.hidden.length} other option${r.hidden.length>1?"s":""} (not quicker or cheaper)</summary>${r.hidden.map(x=>optCard(x,leg,st,tag(x),"ai")).join("")}</details>`;
+      if(r.conflicts.length) results+=`<details class="group"><summary>${r.conflicts.length} option${r.conflicts.length>1?"s":""} excluded (Shabbat conflict or invalid)</summary>${r.conflicts.map(x=>optCard(x,leg,st,tag(x),"ai")).join("")}</details>`;
+    }
+    if(st.live){ const all=st.live.options; const r=rankOptions(S.includeLCC?all:all.filter(o=>!analyzeOption(o,S).lcc),S); const tag=x=>all.indexOf(x.o);
+      results+=`<h3>⚡ Live from Kiwi.com <span class="meta" style="font-weight:500">· ${fmtAgo(st.live.at)}</span></h3>`;
+      if(!r.pref.length&&!r.highlighted.length&&!r.hidden.length) results+=`<div class="empty">No Shabbat-safe live results for this date.</div>`;
+      results+=r.pref.map(x=>optCard(x,leg,st,tag(x),"live")).join("")+r.highlighted.map(x=>optCard(x,leg,st,tag(x),"live")).join("");
+      if(r.hidden.length) results+=`<details class="group"><summary>${r.hidden.length} more live option${r.hidden.length>1?"s":""}</summary>${r.hidden.map(x=>optCard(x,leg,st,tag(x),"live")).join("")}</details>`;
+      if(r.conflicts.length) results+=`<details class="group"><summary>${r.conflicts.length} excluded (Shabbat conflict or invalid)</summary>${r.conflicts.map(x=>optCard(x,leg,st,tag(x),"live")).join("")}</details>`; }
+    if(st.manual && st.manual.length){ results+=`<h3>Flights you entered</h3>`+st.manual.map((o,i)=>optCard({o,a:analyzeOption(o,S)},leg,st,i,"manual")).join(""); }
+    const b=busy[leg.key];
+    results+=groundBlock(leg,st);
+    return `<div class="card leg" data-leg="${esc(leg.key)}">
+      <div class="leghead"><div class="route">${esc(leg.from)} → ${esc(leg.to)} <span>${esc(cityOf(leg.from))} to ${esc(cityOf(leg.to))}</span></div><span class="pill ${dow===5||dow===6?"warn":"gray"}">${leg.ret?"Return · ":`Leg ${li+1} · `}${dayLabel(leg.date)}</span></div>
+      <div class="constraints">${consHtml}</div>
+      <div class="btns">
+        <button class="btn primary" data-act="aiflights" data-leg="${esc(leg.key)}" ${!sample||b?"disabled":""}>${b==="ai"?`<span class="spinner"></span> Searching…`:st.ai?"↻ Search again":"✦ Find best flights"}</button>
+        ${!STANDALONE&&mcp?`<button class="btn" data-act="live" data-leg="${esc(leg.key)}" ${!sample||b?"disabled":""}>${b==="live"?`<span class="spinner"></span> Searching Kiwi.com…`:"⚡ Live search (Kiwi.com)"}</button>`:""}
+        ${STANDALONE?`<a class="btn" target="_blank" rel="noopener" href="${claudeLink(liveSearchPrompt([leg]))}">⚡ Live flights in Claude ↗</a>`:""}
+        <button class="btn" data-act="togglemanual" data-leg="${esc(leg.key)}">＋ Check a specific flight</button>
+      </div>
+      <div class="links">${flightLinks(leg).map(([n,u])=>`<a class="btn small" target="_blank" rel="noopener" href="${u}">${esc(n)} ↗</a>`).join("")}</div>
+      <div class="manual hidden" id="man-${esc(leg.key)}">
+        <h3>Paste an itinerary or enter segments</h3>
+        <p class="hint">Paste a confirmation email or a result from Google Flights and let AI fill it in, or type the segments. Times are local.</p>
+        <textarea placeholder="e.g. LY 81 TLV 23:00 → BKK 12:35+1 …" id="paste-${esc(leg.key)}"></textarea>
+        <div class="btns"><button class="btn small" data-act="parse" data-leg="${esc(leg.key)}" ${!sample||b?"disabled":""}>${b==="parse"?`<span class="spinner"></span> Reading…`:"✦ Read pasted text"}</button></div>
+        <div class="seglist" id="segs-${esc(leg.key)}"></div>
+        <div class="btns"><button class="btn small" data-act="addseg" data-leg="${esc(leg.key)}">＋ Add segment</button><button class="btn small primary" data-act="checkseg" data-leg="${esc(leg.key)}">Check & add</button></div>
+      </div>
+      ${results}
+    </div>`;
+  }).join("");
+  // restore manual editors
+  legs.forEach(leg=>{ const d=draftSegs[leg.key]; if(d){ $(`[id="man-${leg.key}"]`)?.classList.remove("hidden"); renderSegEditor(leg); } });
+}
+const draftSegs={};
+function renderSegEditor(leg){
+  const box=document.getElementById("segs-"+leg.key); if(!box) return;
+  const segs=draftSegs[leg.key]||[];
+  box.innerHTML=segs.map((s,i)=>`<div class="segedit" data-i="${i}">
+    <div><label>Flight</label><input data-s="flight" value="${esc(s.flight)}" placeholder="LY81"></div>
+    <div><label>From</label><input data-s="from" value="${esc(s.from)}" maxlength="3"></div>
+    <div><label>To</label><input data-s="to" value="${esc(s.to)}" maxlength="3"></div>
+    <div><label>Departs (local)</label><input type="datetime-local" data-s="dep" min="${todayIL()}T00:00" value="${esc(s.dep)}"></div>
+    <div><label>Arrives (local)</label><input type="datetime-local" data-s="arr" min="${todayIL()}T00:00" value="${esc(s.arr)}"></div>
+    <button class="btn ghost small danger x" data-act="rmseg" data-leg="${esc(leg.key)}" data-i="${i}">✕</button></div>`).join("")+
+    `<div class="row" style="max-width:320px"><div><label>Fare (USD, optional)</label><input data-s="price" type="number" value="${esc(draftSegs[leg.key+"#price"]||"")}"></div></div>`;
+}
+function readSegEditor(key){
+  const box=document.getElementById("segs-"+key); if(!box) return;
+  const segs=draftSegs[key]||[];
+  box.querySelectorAll(".segedit").forEach(row=>{ const s=segs[+row.dataset.i]; row.querySelectorAll("[data-s]").forEach(inp=>{ s[inp.dataset.s]= (inp.dataset.s==="from"||inp.dataset.s==="to")?inp.value.toUpperCase().trim():inp.value.trim(); }); s.carrier=(s.flight||"").replace(/\s/g,"").slice(0,2).toUpperCase(); s.flight=(s.flight||"").replace(/\s/g,"").toUpperCase(); });
+  const p=box.querySelector('[data-s="price"]'); if(p) draftSegs[key+"#price"]=p.value;
+}
+function renderHotels(){
+  const el=$("#hotels");
+  const stops=trip.stops.map((s,i)=>({s,i})).filter(x=>x.s.code);
+  if(!stops.length){ el.innerHTML=""; return; }
+  const brandChips=HILTON_BRANDS.map(b=>`<button class="chip ${S.brands.includes(b)?"on":""}" data-act="brand" data-b="${esc(b)}">${esc(b)}</button>`).join("");
+  el.innerHTML=stops.map(({s,i})=>{
+    const L=apt(s.code); const st=trip.hotels[i]||{}; const b=busy["h"+i];
+    const ws=tripWindows(trip).filter(w=>w.code===s.code);
+    let res="";
+    if(st.results){ res+=(st.tip?`<div class="note" style="margin-top:10px">ℹ ${esc(st.tip)}</div>`:"")+(st.results.length?"":`<div class="empty">No matching hotels — try enabling more brands.</div>`)+st.results.map((h,hi)=>{
+      const sel=st.selected===hi; const r=h.rateUSD; const rate=r&&(r.low||r.high)?`$${Math.round(r.low||r.high)}${r.high&&r.low&&r.high!==r.low?"–"+Math.round(r.high):""}`:"";
+      const q=h.name+" "+(h.address||cityOf(s.code));
+      return `<div class="hotel ${sel?"sel":""}"><div class="ohead"><div><div class="title">${esc(h.name)}</div><div class="meta">${esc(h.brand||"")}${h.area?" · "+esc(h.area):""}</div></div><div class="price">${rate||"—"}<small>${rate?"per night, typical":""}</small></div></div>
+        <div class="tags">${h.distanceKm!=null&&h.distanceKm!==""?`<span class="pill">${esc(h.distanceKm)} km ${s.address?"to meeting":"to center"}</span>`:""}${h.commute?`<span class="pill gray">${esc(h.commute)}</span>`:""}</div>
+        ${h.why?`<div class="note">${esc(h.why)}</div>`:""}
+        <div class="btns" style="margin-top:8px"><button class="btn small ${sel?"primary":""}" data-act="pickhotel" data-i="${i}" data-h="${hi}">${sel?"✓ Selected":"Select"}</button>
+        <a class="btn small ghost" target="_blank" rel="noopener" href="https://www.hilton.com/en/search/?query=${enc(h.name)}&arrivalDate=${s.checkin}&departureDate=${s.leave}">Rates on Hilton ↗</a>
+        <a class="btn small ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${enc(q)}">Map ↗</a>
+        ${s.address?`<a class="btn small ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&origin=${enc(q)}&destination=${enc(s.address)}">Route to meeting ↗</a>`:""}</div></div>`; }).join(""); }
+    return `<div class="card"><div class="leghead"><div class="route">Hilton hotels · ${esc(cityOf(s.code))} <span>within ${S.hotelRadiusKm||100} km of ${s.address?"your meeting":"the centre"}</span></div><span class="pill gray">${s.checkin?dayLabel(s.checkin):"?"} → ${s.leave?dayLabel(s.leave):"?"}</span></div>
+      ${ws.length?`<div class="constraints"><span class="pill gray">✡ Over ${esc(ws.map(w=>w.name).join(", "))} here</span></div>`:""}
+      <div class="btns"><button class="btn primary" data-act="aihotels" data-i="${i}" ${!sample||b?"disabled":""}>${b?`<span class="spinner"></span> Searching…`:st.results?"↻ Search again":"✦ Find Hilton hotels"}</button></div>
+      <div class="links">${hotelLinks(s).map(([n,u])=>`<a class="btn small" target="_blank" rel="noopener" href="${u}">${esc(n)} ↗</a>`).join("")}</div>
+      ${res}</div>`;
+  }).join("")+`<div class="card"><h2>Hilton brands to include</h2><p class="hint">Tap to toggle. Applies to new hotel searches.</p><div class="chips">${brandChips}</div></div>`;
+}
+function renderSummary(){
+  const legs=computeLegs(trip); const lines=[];
+  legs.forEach(l=>{ const st=trip.legs[l.key]; const o=st?.selected; if(o){ const a=analyzeOption(o,S); lines.push(`<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span>${esc((o.segments||[]).map(s=>s.flight).join(" + "))} · ${a.depU?fmtDT(a.depU,apt(o.segments[0].from).tz):""} → ${a.arrU?fmtDT(a.arrU,apt(o.segments[o.segments.length-1].to).tz):""} ${a.shabbat==="ok"?"✓":a.shabbat==="tight"?"⚠":"✕"}</span></div>`);} else if(l.date) lines.push(`<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span class="meta">${dayLabel(l.date)} · flight not chosen</span></div>`); });
+  if(trip.multi&&trip.multi.selected!=null){ const o=trip.multi.ai.options[trip.multi.selected]; const p=o&&o.priceUSD; lines.unshift(`<div class="it"><b>🎫 Ticket</b><span>${esc(o.ticketing||"Multi-city itinerary")}${p&&(p.low||p.high)?` · ~$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:""}</span></div>`); }
+  trip.stops.forEach((s,i)=>{ if(!s.code) return; const h=trip.hotels[i]; const sel=h&&h.selected!=null?h.results[h.selected]:null; lines.push(`<div class="it"><b>🏨 ${esc(s.code)}</b><span ${sel?"":'class="meta"'}>${sel?esc(sel.name):"hotel not chosen"}</span></div>`); });
+  if(trip.seatAlert){ const a=trip.seatAlert; lines.push(`<div class="it"><b>🔔 Seat</b><span>Window/aisle alert on ${esc(a.flight)} ${esc(a.from||"")}→${esc(a.to||"")} ${a.date?dayLabel(a.date):""} <span class="meta">(ExpertFlyer email/SMS)</span> <button class="btn ghost small" data-act="clearseatalert">Remove</button></span></div>`); }
+  tripWindows(trip).forEach(w=>lines.push(`<div class="it"><b>✡ ${esc(w.code)}</b><span>${esc(w.name)} ${fmtDT(w.start,w.loc.tz)} – ${fmtTime(w.end,w.loc.tz)}</span></div>`));
+  $("#summary").innerHTML=lines.length?lines.join(""):`<div class="meta">Your selected flights, hotels and Shabbat times will appear here.</div>`;
+}
+function summaryText(){
+  const legs=computeLegs(trip); const out=[`${trip.name||"Business trip"}`];
+  legs.forEach(l=>{ const o=trip.legs[l.key]?.selected; if(o){ out.push(`✈ ${l.from}→${l.to}: `+o.segments.map(s=>`${s.flight} ${s.from} ${s.dep.replace("T"," ")} → ${s.to} ${s.arr.replace("T"," ")}`).join(" | ")); } });
+  trip.stops.forEach((s,i)=>{ const h=trip.hotels[i]; if(h&&h.selected!=null) out.push(`🏨 ${cityOf(s.code)}: ${h.results[h.selected].name} (${s.checkin} → ${s.leave})`); });
+  tripWindows(trip).forEach(w=>out.push(`✡ ${w.name} in ${w.loc.city}: candles ${fmtDT(w.start,w.loc.tz)}, ends ${fmtDT(w.end,w.loc.tz)}`));
+  return out.join("\n");
+}
+
+// ---------- trips & settings ----------
+function renderTrips(){
+  const el=$("#tripList");
+  const list=trips.slice().sort((a,b)=>(a.departDate||"").localeCompare(b.departDate||""));
+  el.innerHTML=list.length?list.map(t=>{ const st=t.stops.filter(s=>s.code).map(s=>s.code); return `<div class="trip"><div><b>${esc(t.name||[t.origin,...st].join(" → "))}</b><small>${t.departDate?dayLabel(t.departDate):"no date"} · ${esc([t.origin,...st,...(t.returnHome?[t.origin]:[])].join(" → "))}</small></div>
+    <div style="display:flex;gap:6px"><button class="btn small" data-act="open" data-id="${t.id}">Open</button><button class="btn small ghost danger" data-act="del" data-id="${t.id}">Delete</button></div></div>`; }).join(""):`<div class="empty">No saved trips yet. Plan one and tap “Save trip”.</div>`;
+  $("#storeNote").textContent= col?"Trips sync to your Claude account — they're available on your phone and PC.":(STANDALONE?"Trips are stored in this browser only — set up the cloud helper in Settings to sync phone ↔ PC.":"Trips are stored in this browser only (sign in to Claude to sync across devices).");
+}
+function renderSettings(){
+  $("#sHome").value=aptLabel(S.home); $("#sPref").value=S.prefAirlines.join(", "); $("#sBufB").value=S.bufBefore; $("#sBufA").value=S.bufAfter; $("#sConn").value=S.minConn; $("#sCandle").value=S.candleMin; $("#sHav").value=S.havdalah; $("#sCabin").value=S.cabin; $("#sChabadLocal").checked=S.chabadLocal!==false; $("#sTLV").value=S.airportTLV; $("#sAbroad").value=S.airportAbroad; $("#sDrive").value=S.driveMin; $("#sLCC").checked=!!S.includeLCC; $("#sBags").value=S.bags; $("#sSelfT").value=S.selfTransferMin; $("#sCheaper").value=S.cheaperByUSD; $("#sRadius").value=S.hotelRadiusKm;
+}
+function readSettings(){
+  S.home=codeOf($("#sHome").value)||"TLV"; S.prefAirlines=$("#sPref").value.split(/[,\s]+/).map(x=>x.trim().toUpperCase()).filter(x=>/^[A-Z0-9]{2}$/.test(x)); if(!S.prefAirlines.length) S.prefAirlines=["LY","TG"];
+  S.bufBefore=Math.max(0,+$("#sBufB").value||0); S.bufAfter=Math.max(0,+$("#sBufA").value||0); S.minConn=Math.max(0,+$("#sConn").value||0); S.candleMin=Math.max(0,+$("#sCandle").value||18); S.havdalah=$("#sHav").value; S.cabin=$("#sCabin").value; S.chabadLocal=$("#sChabadLocal").checked; S.airportTLV=Math.max(0,+$("#sTLV").value||3); S.airportAbroad=Math.max(0,+$("#sAbroad").value||2.5); S.driveMin=Math.max(0,+$("#sDrive").value||45); S.includeLCC=$("#sLCC").checked; S.bags=$("#sBags").value; S.selfTransferMin=Math.max(0,+$("#sSelfT").value||3); S.cheaperByUSD=Math.max(0,Math.round(+$("#sCheaper").value||0)); S.hotelRadiusKm=Math.min(300,Math.max(1,Math.round(+$("#sRadius").value||100)));
+}
+let _setT;
+function saveSettings(){ clearTimeout(_setT); _setT=setTimeout(async()=>{ try{ localStorage.setItem("btp.settings",JSON.stringify(S)); }catch{} if(col){ try{ await col.doc("settings").set({kind:"settings",settings:S}); }catch(e){} } },600); }
+let _saving=false;
+async function saveTrip(silent){
+  readForm(); trip.savedAt=Date.now();
+  for(const [k,v] of Object.entries(trip.legs)) if(!v.ai && !(v.manual&&v.manual.length) && !v.selected) delete trip.legs[k];
+  const copy=JSON.parse(JSON.stringify(trip));
+  const i=trips.findIndex(t=>t.id===trip.id); if(i>=0) trips[i]=copy; else trips.push(copy);
+  try{ localStorage.setItem("btp.trips",JSON.stringify(trips)); }catch{}
+  if(col && !_saving){ _saving=true; try{ await col.doc(trip.id).set({kind:"trip",trip:copy,updated:Date.now()}); if(!silent) toast("Trip saved ✓"); }catch(e){ toast(e.code==="quota_exceeded"?"Storage full — delete old trips":"Saved on this device only"); } _saving=false; }
+  else if(!silent) toast("Trip saved on this device ✓");
+  dirty=false;
+  if(db&&watchDoc&&watchDoc.enabled){ try{ await db.doc("watch/"+trip.id).update(watchPayload()); }catch(e){} }
+}
+let _autoT; function autosave(){ if(trip.savedAt){ clearTimeout(_autoT); _autoT=setTimeout(()=>saveTrip(true),1200); } }
+async function deleteTrip(id,silent){ removeWatch(id); trips=trips.filter(t=>t.id!==id); try{ localStorage.setItem("btp.trips",JSON.stringify(trips)); }catch{} if(col){ try{ await col.doc(id).delete(); }catch{} } renderTrips(); if(!silent) toast("Trip deleted"); }
+
+let _purged=false;
+function purgeExpired(){ if(_purged) return; _purged=true; const today=todayIL();
+  trips.filter(t=>{ const e=tripEnd(t); return e && e<today; }).forEach(t=>deleteTrip(t.id,true)); }
+// ---------- navigation ----------
+function show(v){ view=v; ["plan","trips","settings"].forEach(x=>{ $("#view-"+x).classList.toggle("hidden",x!==v); document.querySelectorAll(`[data-tab="${x}"]`).forEach(b=>b.classList.toggle("on",x===v)); }); $("#savebar").classList.toggle("hidden",v!=="plan"); if(v==="trips") renderTrips(); if(v==="settings") renderSettings(); window.scrollTo(0,0); }
+
+// ---------- events ----------
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-act],[data-tab]"); if(!b) return;
+  if(b.dataset.tab){ show(b.dataset.tab); return; }
+  const act=b.dataset.act, key=b.dataset.leg;
+  const leg=key?computeLegs(trip).find(l=>l.key===key):null;
+  if(act==="addstop"){ readForm(); const last=trip.stops[trip.stops.length-1]; trip.stops.push({code:"",checkin:last?.leave||"",leave:"",address:""}); renderForm(); renderPlan(); }
+  if(act==="rmstop"){ readForm(); trip.stops.splice(+b.dataset.i,1); const h={}; Object.entries(trip.hotels).forEach(([k,v])=>{ k=+k; if(k<+b.dataset.i) h[k]=v; else if(k>+b.dataset.i) h[k-1]=v; }); trip.hotels=h; renderForm(); renderPlan(); }
+  if(act==="aiflights"&&leg){ busy[key]="ai"; renderLegs(); try{ const r=await aiFlights(leg); legState(key).ai=r; autosave(); ensureWatch(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":err.code==="not_granted"?"AI access was not granted":"Search failed: "+(err.message||err)); } busy[key]=null; renderLegs(); renderSummary(); }
+  if(act==="togglemanual"){ const m=document.getElementById("man-"+key); m.classList.toggle("hidden"); if(!draftSegs[key]){ draftSegs[key]=[{flight:"",from:leg.from,to:leg.to,dep:leg.date+"T",arr:""}]; draftSegs[key][0].dep=""; } renderSegEditor(leg); }
+  if(act==="addseg"){ readSegEditor(key); const segs=draftSegs[key]||(draftSegs[key]=[]); const prev=segs[segs.length-1]; segs.push({flight:"",from:prev?.to||leg.from,to:leg.to,dep:"",arr:""}); renderSegEditor(leg); }
+  if(act==="rmseg"){ readSegEditor(key); draftSegs[key].splice(+b.dataset.i,1); renderSegEditor(leg); }
+  if(act==="parse"){ const txt=document.getElementById("paste-"+key).value.trim(); if(!txt){ toast("Paste some itinerary text first"); return; } busy[key]="parse"; renderLegs(); try{ const j=await aiParse(txt,leg); draftSegs[key]=(j.segments||[]).map(s=>({flight:(s.flight||"").replace(/\s/g,""),carrier:s.carrier,from:s.from,to:s.to,dep:(s.dep||"").slice(0,16),arr:(s.arr||"").slice(0,16)})); if(j.priceUSD&&(j.priceUSD.low||j.priceUSD.high)) draftSegs[key+"#price"]=j.priceUSD.low||j.priceUSD.high; toast(`Found ${draftSegs[key].length} segment(s) — review and tap Check & add`); }catch(err){ toast("Couldn't read that: "+(err.message||err)); } busy[key]=null; renderLegs(); }
+  if(act==="checkseg"){ readSegEditor(key); const segs=(draftSegs[key]||[]).filter(s=>s.from&&s.to&&s.dep&&s.arr); if(!segs.length){ toast("Fill in at least one full segment"); return; }
+    for(const c of new Set(segs.flatMap(s=>[s.from,s.to]))) if(!apt(c)) await lookupAirport(c);
+    const pr=+draftSegs[key+"#price"]; const o={segments:segs.map(s=>({...s})),priceUSD:pr?{low:pr,high:pr}:null,notes:"Entered manually"};
+    const st=legState(key); (st.manual||(st.manual=[])).push(o); delete draftSegs[key]; delete draftSegs[key+"#price"]; autosave(); renderLegs(); renderSummary();
+    const a=analyzeOption(o,S); toast(a.shabbat==="ok"?"✓ Shabbat-safe":a.shabbat==="tight"?"⚠ Tight to Shabbat":"✕ Conflicts with Shabbat"); }
+  if(act==="pick"){ const st=legState(key); const o=b.dataset.src==="manual"?st.manual[+b.dataset.idx]:b.dataset.src==="live"?st.live.options[+b.dataset.idx]:st.ai.options[+b.dataset.idx]; st.selected= (st.selected&&JSON.stringify(st.selected.segments)===JSON.stringify(o.segments))?null:o; if(trip.multi) trip.multi.selected=null; autosave(); renderLegs(); renderSummary(); }
+  if(act==="live"&&leg){ busy[key]="live"; renderLegs(); try{ legState(key).live=await aiLive([leg],false); autosave(); ensureWatch(); }catch(err){ toast(String(err.message||"").startsWith("KIWI_")?kiwiErrorText():err.code==="rate_limited"?"AI is busy — try again in a minute":"Live search failed: "+(err.message||err)); } busy[key]=null; renderLegs(); renderSummary(); }
+  if(act==="livemulti"){ const legs=computeLegs(trip); busy.multi="live"; renderLegs(); try{ const ai=await aiLive(legs,true); trip.multi={ai,sig:ai.sig,selected:null}; autosave(); ensureWatch(); }catch(err){ toast(String(err.message||"").startsWith("KIWI_")?kiwiErrorText():"Live search failed: "+(err.message||err)); } busy.multi=false; renderLegs(); renderSummary(); }
+  if(act==="aimulti"){ const legs=computeLegs(trip); busy.multi=true; renderLegs(); try{ const ai=await aiMulti(legs); trip.multi={ai,sig:ai.sig,selected:null}; autosave(); ensureWatch(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":"Search failed: "+(err.message||err)); } busy.multi=false; renderLegs(); renderSummary(); }
+  if(act==="pickmulti"){ const legs=computeLegs(trip); const m=trip.multi; const i=+b.dataset.idx; const o=m.ai.options[i];
+    if(m.selected===i){ m.selected=null; legs.forEach(l=>{ const st=legState(l.key); if(st.selected&&st.selected.multi) st.selected=null; }); }
+    else { m.selected=i; legs.forEach((l,k)=>{ const lg=o.legs[k]; if(lg) legState(l.key).selected={segments:lg.segments,priceUSD:null,notes:"Part of multi-city itinerary",multi:true}; }); }
+    autosave(); renderLegs(); renderSummary(); }
+  if(act==="aihotels"){ const i=+b.dataset.i; busy["h"+i]=true; renderHotels(); try{ trip.hotels[i]=await aiHotels(trip.stops[i],i); autosave(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":"Search failed: "+(err.message||err)); } busy["h"+i]=false; renderHotels(); renderSummary(); }
+  if(act==="pickhotel"){ const h=trip.hotels[+b.dataset.i]; const hi=+b.dataset.h; h.selected=h.selected===hi?null:hi; autosave(); renderHotels(); renderSummary(); }
+  if(act==="brand"){ const x=b.dataset.b; S.brands=S.brands.includes(x)?S.brands.filter(y=>y!==x):[...S.brands,x]; if(!S.brands.length) S.brands=[x]; saveSettings(); b.classList.toggle("on",S.brands.includes(x)); }
+  if(act==="save"){ await saveTrip(); }
+  if(act==="new"){ if(dirty && !b.dataset.confirm){ b.dataset.confirm="1"; b.textContent="Tap again to discard"; setTimeout(()=>{ b.textContent="New trip"; delete b.dataset.confirm; },2500); return; } trip=newTrip(); dirty=false; renderForm(); renderPlan(); show("plan"); toast("New trip"); b.textContent="New trip"; delete b.dataset.confirm; }
+  if(act==="open"){ const t=trips.find(x=>x.id===b.dataset.id); if(t){ trip=JSON.parse(JSON.stringify(t)); dirty=false; renderForm(); renderPlan(); show("plan"); } }
+  if(act==="del"){ if(!b.dataset.confirm){ b.dataset.confirm="1"; b.textContent="Confirm delete"; setTimeout(()=>{ b.textContent="Delete"; delete b.dataset.confirm; },2500); return; } await deleteTrip(b.dataset.id); }
+  if(act==="watch"){ await toggleWatch(); }
+  if(act==="seatalert"){ // the link itself opens ExpertFlyer; here we copy the flight details and remember which flight holds the 1 free alert
+    const prev=trip.seatAlert; trip.seatAlert={flight:b.dataset.flight,date:b.dataset.date,from:b.dataset.from,to:b.dataset.to,setAt:Date.now()};
+    try{ await navigator.clipboard.writeText(b.dataset.txt||""); }catch{}
+    toast(prev&&(prev.flight!==trip.seatAlert.flight||prev.date!==trip.seatAlert.date)?`Flight copied. Free plan = 1 alert: delete the ${prev.flight} alert in ExpertFlyer first`:"Flight copied — in ExpertFlyer: Create Seat Alert → Any Window or Any Aisle");
+    autosave(); renderLegs(); renderSummary(); }
+  if(act==="clearseatalert"){ trip.seatAlert=null; autosave(); renderLegs(); renderSummary(); toast("Removed — also delete it in ExpertFlyer to free your alert"); }
+  if(act==="copytxt"){ try{ await navigator.clipboard.writeText(b.dataset.txt||""); toast("Copied — paste it into the search"); }catch{ toast("Copy not allowed here"); } }
+  if(act==="copy"){ try{ await navigator.clipboard.writeText(summaryText()); toast("Summary copied"); }catch{ toast("Copy not allowed here"); } }
+  if(act==="resetsettings"){ S=JSON.parse(JSON.stringify({...DEFAULT_SETTINGS,extraAirports:S.extraAirports})); saveSettings(); renderSettings(); renderPlan(); toast("Settings reset"); }
+});
+document.addEventListener("change",e=>{
+  if(e.target.closest("#tripForm")) onFormChange(e);
+  if(e.target.closest("#settingsForm")){ readSettings(); saveSettings(); renderPlan(); toast("Settings saved"); }
+});
+document.addEventListener("submit",e=>e.preventDefault());
+
+// ---------- standalone (GitHub Pages) adapters ----------
+let STANDALONE=false, mcp=null, kiwiState="unknown";
+function fmtAgo(ms){ const m=Math.round((Date.now()-ms)/60000); return m<1?"just now":m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" d ago"; }
+function conn(){ try{ return JSON.parse(localStorage.getItem("btp.conn")||"{}"); }catch{ return {}; } }
+function setConn(c){ try{ localStorage.setItem("btp.conn",JSON.stringify(c)); }catch{} }
+async function workerFetch(path,opts={}){
+  const c=conn(); if(!c.url||!c.key) throw new Error("Cloud helper not set up (Settings → Cloud helper)");
+  const r=await fetch(c.url.replace(/\/+$/,"")+path,{...opts,headers:{"Content-Type":"application/json","Authorization":"Bearer "+c.key,...(opts.headers||{})}});
+  if(!r.ok){ let m=r.status+""; try{ m=(await r.json()).error||m; }catch{} throw new Error("Cloud helper: "+m); }
+  return r.status===204?null:r.json();
+}
+function workerSample(){ const f=async(prompt)=>{ const j=await workerFetch("/ai",{method:"POST",body:JSON.stringify({prompt})}); return {text:j.text||""}; }; return f; }
+function workerCollection(){
+  return {
+    doc:id=>({ set:v=>workerFetch("/docs/"+encodeURIComponent(id),{method:"PUT",body:JSON.stringify(v)}), delete:()=>workerFetch("/docs/"+encodeURIComponent(id),{method:"DELETE"}) }),
+    onSnapshot(cb,err){ let stop=false; const pull=async()=>{ if(stop) return; try{ const j=await workerFetch("/docs"); const docs=Object.entries(j.docs||{}).map(([id,v])=>({id,data:()=>v})); cb({docs,metadata:{hasPendingWrites:false,fromCache:false}}); }catch(e){ if(err) err(e); stop=true; } }; pull(); const t=setInterval(()=>document.visibilityState==="visible"&&pull(),60000); return ()=>{ stop=true; clearInterval(t); }; }
+  };
+}
+function claudeLink(prompt){ return "https://claude.ai/new?q="+enc(prompt); }
+function liveSearchPrompt(legs){
+  return `Use the Kiwi.com connector to search live flights for this trip and show a table (route, airline, flight numbers, departure/arrival local times, stops, duration, price, booking link):\n`+
+   legs.map((l,i)=>`${i+1}. ${l.from} → ${l.to} on ${l.date}`).join("\n")+
+   `\nCabin: ${S.cabin}. Prefer ${S.prefAirlines.join("/")} (El Al / Thai), but also show low-cost or other airlines if quicker or cheaper. I keep Shabbat: exclude any flight departing, flying or connecting between Friday candle-lighting and Saturday nightfall (Chabad.org times) at the airports involved, and flag flights landing less than ${S.bufBefore}h before Shabbat.`;
+}
+
+// ---------- Kiwi.com live search (Claude version, via the viewer's connector) ----------
+const KIWI_SERVER="Kiwi.com", KIWI_TOOL="search-flight";
+const KIWI_FALLBACK_SCHEMA={type:"object",description:"Kiwi.com search-flight arguments. Likely fields: flyFrom (IATA or city), flyTo, departureDate (dd/mm/yyyy), departureDateFlexRange (0-3), returnDate, returnDateFlexRange, passengers {adults,children,infants}, cabinClass (M economy, W premium, C business, F first), curr (e.g. USD), locale, sort. If the call errors, read the error and retry with corrected fields.",additionalProperties:true};
+async function kiwiTool(){
+  let schema=KIWI_FALLBACK_SCHEMA;
+  try{ const d=await mcp.describeTool(KIWI_SERVER,KIWI_TOOL); if(d&&d.inputSchema) schema=d.inputSchema; }catch(e){}
+  return {name:"kiwi_search_flight",description:"Search live Kiwi.com flights (one call per leg/date). Returns Kiwi.com results with prices and booking links.",inputSchema:schema,
+    execute:async(input)=>{ try{ const r=await mcp.callTool(KIWI_SERVER,KIWI_TOOL,input); const p=r.payload!==undefined?r.payload:r.content; const t=typeof p==="string"?p:JSON.stringify(p); return t.length>60000?t.slice(0,60000):t; }
+      catch(e){ if(["server_not_connected","needs_reauth","not_in_manifest","blocked_by_policy","approval_required","selection_required"].includes(e.code)){ kiwiState=e.code; throw new Error("KIWI_"+e.code); } return "ERROR "+(e.code||"")+": "+(e.message||e); } }};
+}
+async function aiLive(legs,multi){
+  const tool=await kiwiTool();
+  const codes=[...new Set(legs.flatMap(l=>[l.from,l.to]))];
+  const legLines=legs.map((l,i)=>`Leg ${i+1}: ${l.from} → ${l.to}, departing ${l.date} (also try the evening before if useful)`).join("\n");
+  const shape=multi
+    ? `{"options":[{"legs":[{"segments":[{"carrier":"LY","flight":"LY81","from":"TLV","to":"BKK","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}]}],"priceUSD":{"low":0,"high":0},"extrasUSD":0,"ticketing":"e.g. separate Kiwi.com bookings per leg","bookingUrl":"https://...","notes":"short"}],"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}},"caveat":"one sentence"}  — each option's "legs" must have exactly ${legs.length} entries in order.`
+    : `{"options":[{"segments":[{"carrier":"LY","flight":"LY81","from":"TLV","to":"BKK","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}],"priceUSD":{"low":0,"high":0},"extrasUSD":0,"bookingUrl":"https://...","notes":"short"}],"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}},"caveat":"one sentence"}`;
+  const prompt=`You are helping an Israel-based business traveler. Use the kiwi_search_flight tool to get LIVE Kiwi.com results. For EACH leg call it twice: once with select_airlines="${S.prefAirlines.join(",")}" (Kiwi's default results often omit El Al/Thai nonstops) and once without an airline filter${S.includeLCC?"":` but with exclude_airlines of low-cost carriers`}; use currency "USD", dates as dd/mm/yyyy, cabinClass ${({"Economy":"M","Premium Economy":"W","Business":"C"})[S.cabin]||"M"}, and departureDateFlexDays 1 if the exact date returns little. Then pick up to 8 of the best ${multi?"complete itineraries (one result per leg, combined)":"options"}.
+${legLines}
+Cabin: ${S.cabin}. 1 adult. Currency USD.
+Prefer ${S.prefAirlines.join("/")} (El Al / Thai) whenever Kiwi returns them; also keep the best other or low-cost options that are quicker or cheaper — total travel time (first take-off at the origin to final landing, layovers included) matters more than price, so favour the fastest itineraries. ${S.includeLCC?"Low-cost airlines are welcome.":"Exclude low-cost airlines."}
+HARD Shabbat constraint — discard anything departing, flying or connecting during:
+${windowsText(codes,addDays(legs[0].date,-1),addDays(legs[legs.length-1].date,2))}
+Use ONLY flights, times, prices and links that appear in the tool results — never invent any. Copy each result's Kiwi booking link into "bookingUrl" (must start with https://). Times are local at each airport.
+Reply with ONLY JSON in this shape:
+${shape}
+Include in "airports" every airport code used.`;
+  const r=await sample(prompt,{modelTier:"default",tools:[tool]});
+  const j=parseJSON(r.text); absorbAirports(j.airports);
+  const opts=(Array.isArray(j.options)?j.options:[]).map(o=>({...o,source:"kiwi",bookingUrl:(typeof o.bookingUrl==="string"&&o.bookingUrl.startsWith("https://"))?o.bookingUrl:""}));
+  return {options:opts,caveat:j.caveat||"Live results from Kiwi.com — prices can change until booked.",at:Date.now(),live:true,sig:legs.map(l=>l.key).join("|")};
+}
+function kiwiErrorText(){ return kiwiState==="server_not_connected"||kiwiState==="selection_required"?"Add the Kiwi.com connector in Claude (Settings → Connectors) to use live search.":kiwiState==="needs_reauth"?"Reconnect Kiwi.com in Claude Settings → Connectors.":kiwiState==="not_in_manifest"?"Kiwi.com access was declined for this page — allow it to use live search.":kiwiState==="blocked_by_policy"?"Your organization blocks the Kiwi.com connector.":"Live search unavailable right now."; }
+
+// ---------- trip watch (alerts run by a scheduled Claude task) ----------
+let watchUnsub=null, watchDoc=null, alertsMeta=null, metaSubbed=false;
+function metaSub(){ if(metaSubbed||!db) return; metaSubbed=true; try{ db.doc("meta/alerts").onSnapshot(s=>{ alertsMeta=s.exists?s.data():null; renderWatch(); },()=>{}); }catch(e){} }
+function watchPayload(){
+  const legs=computeLegs(trip).filter(l=>l.date&&apt(l.from)&&apt(l.to));
+  const codes=[...new Set(legs.flatMap(l=>[l.from,l.to]))];
+  const wins=[]; codes.forEach(c=>{ const L=apt(c); holyWindows(L,addDays(legs[0].date,-1),addDays(legs[legs.length-1].date,2),S).forEach(w=>wins.push({code:c,name:w.name,startUtc:new Date(w.start).toISOString(),endUtc:new Date(w.end).toISOString(),startLocal:fmtDT(w.start,L.tz),endLocal:fmtDT(w.end,L.tz)})); });
+  const tz={}; codes.forEach(c=>tz[c]=apt(c).tz);
+  return {tripId:trip.id,name:trip.name||[trip.origin,...trip.stops.map(s=>s.code)].join(" → "),enabled:true,
+    legs:legs.map(l=>({from:l.from,to:l.to,date:l.date})),prefAirlines:S.prefAirlines,includeLCC:!!S.includeLCC,cabin:S.cabin,
+    cheaperByUSD:S.cheaperByUSD,bufBeforeHours:S.bufBefore,bufAfterHours:S.bufAfter,minConnHours:S.minConn,shabbatWindows:wins,airportTz:tz,updatedAt:new Date().toISOString()};
+}
+function watchSub(){ metaSub();
+  if(watchUnsub){ watchUnsub(); watchUnsub=null; } watchDoc=null;
+  if(!db) return; try{ watchUnsub=db.doc("watch/"+trip.id).onSnapshot(s=>{ watchDoc=s.exists?s.data():null; renderWatch(); },()=>{}); }catch(e){}
+}
+function renderWatch(){
+  const el=$("#watchBox"); if(!el) return;
+  if(STANDALONE||!db){ el.innerHTML=STANDALONE?"":`<div class="note">Sign in to Claude to use trip alerts.</div>`; return; }
+  const legs=computeLegs(trip).filter(l=>l.date);
+  if(!legs.length){ el.innerHTML=`<div class="note">Add dates to watch this trip for new options.</div>`; return; }
+  const on=watchDoc&&watchDoc.enabled; const last=watchDoc&&watchDoc.last;
+  if(false&&on&&alertsMeta&&alertsMeta.paused){ el.innerHTML=`<div class="banner" style="margin-top:10px;margin-bottom:0"><b>🔕 Trip alerts are paused</b> — they switch off by themselves when there are no active trips, so they don't use your Claude plan for nothing.<br>To resume for this trip: in Claude open <b>Scheduled tasks → “Trip alerts – live flight check”</b> and turn it on (or ask Claude: “resume my trip alerts”). The first check then saves a baseline.</div>`; return; }
+  el.innerHTML=`<div class="sh" style="margin-top:10px"><div class="ic" style="background:${on?"#127a46":"#5b6b85"};color:#fff">${on?"🔔":"🔕"}</div><div style="flex:1"><b>${on?"Watching this trip · every 3 hours":"Trip alerts"}</b>
+    <small>${on?(last?`Last check ${esc(last.checkedAtLocal||last.checkedAt||"")}: ${esc(last.summary||"")}`:"First check runs within 3 hours."):"Starts automatically when you search flights for this trip: live Kiwi.com check every 3 hours for new Shabbat-safe options, sold-out or price-jump signals, sent to your phone. Stops when the trip is deleted or its dates pass."}</small></div>
+    ${on?"":`<button class="btn small primary" data-act="watch">Watch</button>`}</div>
+    ${on&&last&&Array.isArray(last.alerts)&&last.alerts.length?`<ul style="margin:8px 0 0;padding-left:18px;font-size:13px">${last.alerts.slice(0,8).map(a=>`<li>${esc(a)}</li>`).join("")}</ul>`:""}`;
+}
+function tripEnd(t){ const st=t.stops.filter(s=>s.code); const ds=[t.departDate,...st.map(s=>s.leave),...st.map(s=>s.checkin)].filter(Boolean).sort(); return ds[ds.length-1]||""; }
+function todayIL(){ const p=zoneParts(Date.now(),"Asia/Jerusalem"); return ymd(p.y,p.m,p.d); }
+// A trip is watched automatically once it has been queried; it stays until deleted or its dates pass.
+async function ensureWatch(){
+  if(STANDALONE||!db) return;
+  const legs=computeLegs(trip).filter(l=>l.date&&apt(l.from)&&apt(l.to)); if(!legs.length) return;
+  if(!trip.savedAt) await saveTrip(true);
+  try{ const ref=db.doc("watch/"+trip.id); const p=watchPayload(); if(watchDoc) await ref.update(p); else await ref.set(p); }catch(e){}
+}
+async function removeWatch(id){ if(!db) return; try{ await db.doc("watch/"+id).delete(); }catch(e){} }
+async function toggleWatch(){
+  if(!db){ toast("Sign in to Claude to use alerts"); return; }
+  if(!trip.savedAt) await saveTrip(true);
+  const ref=db.doc("watch/"+trip.id);
+  try{
+    { const p=watchPayload(); if(watchDoc) await ref.update(p); else await ref.set(p); toast("Watching — you'll get alerts on your phone"); }
+  }catch(e){ toast("Couldn't update alerts: "+(e.message||e.code||e)); }
+}
+
+// ---------- init ----------
+function boot(){
+  try{ const s=JSON.parse(localStorage.getItem("btp.settings")||"null"); if(s) S={...DEFAULT_SETTINGS,...s}; }catch{}
+  try{ trips=JSON.parse(localStorage.getItem("btp.trips")||"[]")||[]; }catch{ trips=[]; }
+  syncExtra();
+  $("#apts").innerHTML=Object.entries(AIRPORTS).map(([c,a])=>`<option value="${c} — ${esc(a[0])}">`).join("");
+  trip=newTrip(); renderForm(); renderPlan(); show("plan");
+  initCaps();
+}
+async function initCaps(){
+  if(!window.claude||typeof window.claude.use!=="function"){ STANDALONE=true; initStandalone(); return; }
+  claude.use("mcp").then(m=>{ mcp=m; renderLegs(); }).catch(()=>{});
+  claude.use("sample").then(s=>{ sample=s; $("#aiNote").classList.toggle("hidden",!!s); renderLegs(); renderHotels(); }).catch(()=>$("#aiNote").classList.remove("hidden"));
+  try{
+    const [d,u]=await Promise.all([claude.use("db"),claude.use("user")]);
+    if(d&&u){ uid=await u.id(); if(uid){ db=d; col=db.collection("data/users/"+uid); watchSub();
+      const t=setTimeout(()=>{},10000);
+      col.onSnapshot(snap=>{ clearTimeout(t); let changed=false;
+        const remote=[]; snap.docs.forEach(doc=>{ const v=doc.data(); if(!v) return; if(v.kind==="settings"&&v.settings&&!snap.metadata.hasPendingWrites){ S={...DEFAULT_SETTINGS,...v.settings}; syncExtra(); changed=true; } if(v.kind==="trip"&&v.trip) remote.push(v.trip); });
+        // merge: remote wins by savedAt
+        const map=new Map(trips.map(t=>[t.id,t])); remote.forEach(r=>{ const l=map.get(r.id); if(!l||(r.savedAt||0)>=(l.savedAt||0)) map.set(r.id,r); });
+        // push local-only trips up once
+        const remoteIds=new Set(remote.map(r=>r.id)); trips.filter(t=>!remoteIds.has(t.id)&&t.savedAt&&!t._pushed).forEach(t=>{ t._pushed=true; col.doc(t.id).set({kind:"trip",trip:t,updated:Date.now()}).catch(()=>{}); });
+        trips=[...map.values()];
+        purgeExpired();
+        if(view==="trips") renderTrips(); if(changed){ if(view==="settings") renderSettings(); }
+      },err=>{ col=null; if(view==="trips") renderTrips(); });
+    } }
+  }catch(e){}
+}
+function initStandalone(){
+  document.querySelectorAll(".standalone-only").forEach(e=>e.classList.remove("hidden"));
+  const c=conn(); $("#cUrl").value=c.url||""; $("#cKey").value=c.key||"";
+  if(c.url&&c.key){ sample=workerSample(); col=workerCollection(); $("#aiNote").classList.add("hidden");
+    col.onSnapshot(snap=>{ const remote=[]; snap.docs.forEach(d=>{ const v=d.data(); if(v&&v.kind==="trip"&&v.trip) remote.push(v.trip); if(v&&v.kind==="settings"&&v.settings){ S={...DEFAULT_SETTINGS,...v.settings}; syncExtra(); } });
+      const map=new Map(trips.map(t=>[t.id,t])); remote.forEach(r=>{ const l=map.get(r.id); if(!l||(r.savedAt||0)>=(l.savedAt||0)) map.set(r.id,r); }); trips=[...map.values()]; purgeExpired(); if(view==="trips") renderTrips(); },
+      err=>{ col=null; toast(String(err.message||err)); });
+  } else { purgeExpired(); $("#aiNote").textContent="AI hotel search and cross-device sync need the free cloud helper — see Settings → Cloud helper. Shabbat checks, flight checks and links work now."; $("#aiNote").classList.remove("hidden"); }
+  renderLegs(); renderHotels();
+}
+document.addEventListener("click",e=>{ if(e.target.id==="cSave"){ setConn({url:$("#cUrl").value.trim(),key:$("#cKey").value.trim()}); toast("Saved — reloading…"); setTimeout(()=>location.reload(),600); } });
+boot();
+</script>
+</body>
+</html>
