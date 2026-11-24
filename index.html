@@ -93,6 +93,9 @@ input.datepick{cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xml
 .calk{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px;font-size:11.5px;color:var(--muted)}.calk .dot{position:static;display:inline-block;transform:none;margin-right:4px;vertical-align:middle}
 .calk button{margin-left:auto;border:0;background:none;color:var(--bad);font:inherit;cursor:pointer}
 #holidayWarn ul{margin:6px 0 0;padding-left:18px}#holidayWarn li{margin:3px 0}
+
+.frow{grid-template-columns:1fr 1fr 1.1fr}@media(max-width:640px){.frow{grid-template-columns:1fr 1fr}.frow>div:last-child{grid-column:1/-1}}
+#autoStatus{display:flex;align-items:center;gap:8px}#autoStatus.hidden{display:none}
 </style>
 </head>
 <body>
@@ -105,16 +108,15 @@ input.datepick{cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xml
 
   <section id="view-plan">
     <div id="holidayWarn" class="banner hidden"></div>
+    <div id="autoStatus" class="banner info hidden"></div>
     <div class="grid two">
       <div class="grid sticky">
         <form class="card" id="tripForm" autocomplete="off">
           <h2>Trip</h2>
-          <p class="hint">Add each city you're visiting in order. Flights and Shabbat checks update as you go.</p>
+          <p class="hint">Enter every flight of the trip — where from, where to and the date. As soon as all flights are filled in, the planner finds flights and Hilton hotels automatically.</p>
           <label>Trip name</label><input id="tripName" placeholder="e.g. Bangkok customer visit">
-          <div class="row"><div><label>From</label><input id="origin" list="apts"></div><div><label>Departure date</label><input type="text" readonly class="datepick" id="departDate" placeholder="Pick a date"></div></div>
-          <div id="stops"></div>
-          <div class="btns"><button type="button" class="btn small" data-act="addstop">＋ Add another city</button></div>
-          <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--ink);letter-spacing:0;margin-top:14px"><input type="checkbox" id="returnHome" style="width:auto"> Return home after the last city</label>
+          <div id="flights"></div>
+          <div class="btns"><button type="button" class="btn small" data-act="addflight">＋ Add another flight</button><button type="button" class="btn small" id="addReturn" data-act="addreturn">＋ Add flight home</button></div>
         </form>
         <div class="card"><h2>Shabbat & holidays on this trip</h2><p class="hint">Chabad.org times, plus Jewish and Israeli holidays, for where you'll be.</p><div id="shabbatList" class="sh-list"></div></div>
         <div class="card"><div class="leghead"><h2>Trip summary</h2><button class="btn small ghost" data-act="copy">Copy</button></div><div id="summary" class="summary" style="margin-top:8px"></div><div id="watchBox"></div></div>
@@ -456,7 +458,38 @@ let trips=[]; let view="plan"; let dirty=false;
 let sample=null, db=null, col=null, uid=null;
 const busy={};
 
-function newTrip(){ return {id:"t"+Date.now().toString(36),name:"",origin:S?.home||"TLV",departDate:"",returnHome:true,stops:[{code:"",checkin:"",leave:"",address:""}],legs:{},hotels:{},savedAt:null}; }
+function newTrip(){ const h=S?.home||"TLV"; const t={id:"t"+Date.now().toString(36),name:"",flights:[{from:h,to:"",date:""},{from:"",to:h,date:""}],legs:{},hotels:{},auto:{},savedAt:null}; deriveTrip(t); return t; }
+// Flights are the source of truth; origin/departDate/stays ("stops") are derived from them.
+function migrateTrip(t){
+  if(t.flights) return t;
+  const fl=[]; let prev=t.origin||S.home; const st=(t.stops||[]).filter(s=>s.code);
+  st.forEach((s,i)=>{ fl.push({from:prev,to:s.code,date:i===0?(t.departDate||s.checkin||""):(st[i-1].leave||"")}); prev=s.code; });
+  if(t.returnHome!==false && st.length) fl.push({from:prev,to:t.origin||S.home,date:st[st.length-1].leave||""});
+  t.flights=fl.length?fl:[{from:t.origin||S.home,to:"",date:""}]; t.hotels={}; t.auto={}; return t;
+}
+function arrivalDate(t,f){ // local arrival date of the selected flight for this leg, else the flight date
+  const st=t.legs&&t.legs[`${f.from}-${f.to}-${f.date}`]; const o=st&&st.selected;
+  if(o&&o.segments&&o.segments.length){ const last=o.segments[o.segments.length-1]; if(last.arr) return last.arr.slice(0,10); }
+  return f.date;
+}
+function deriveTrip(t){
+  migrateTrip(t);
+  const fl=t.flights; t.origin=(fl[0]&&fl[0].from)||S.home; t.departDate=(fl[0]&&fl[0].date)||"";
+  const stays=[];
+  fl.forEach((f,i)=>{
+    if(!f.to) return; const nx=fl[i+1]; const last=i===fl.length-1;
+    if(last && f.to===t.origin) return;                       // back home
+    const checkin=f.date?arrivalDate(t,f):""; const leave=nx&&nx.date?nx.date:"";
+    let need=true, why="";
+    if(nx&&nx.date&&checkin&&nx.date<=checkin){ need=false; why="Connection — continuing the same day, no hotel needed"; }
+    if(!nx||!nx.date){ need=false; why=nx?"Add the date of your next flight to get hotel suggestions":"Add your next flight (or return home) to get hotel suggestions"; }
+    if(f.to===t.origin && apt(f.to)?.country==="IL"){ need=false; why="Home"; }
+    stays.push({code:f.to,checkin,leave,need,why,key:`s${i}-${f.to}`});
+  });
+  t.stops=stays; t.returnHome=fl.length>1&&fl[fl.length-1].to===t.origin;
+  return t;
+}
+function stayNights(s){ return s.checkin&&s.leave?Math.round((Date.parse(s.leave)-Date.parse(s.checkin))/86400000):0; }
 function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),2200); }
 function syncExtra(){ Object.assign(EXTRA_AIRPORTS,S.extraAirports||{}); }
 function codeOf(v){ const m=/^\s*([A-Za-z]{3})\b/.exec(v||""); return m?m[1].toUpperCase():""; }
@@ -464,9 +497,9 @@ function aptLabel(c){ const a=apt(c); return a?`${c} — ${a.city}`:(c||""); }
 
 // ---------- legs & constraints ----------
 function computeLegs(t){
-  const legs=[]; let prev=t.origin; const st=t.stops.filter(s=>s.code);
-  st.forEach((s,i)=>{ legs.push({from:prev,to:s.code,date:i===0?t.departDate:st[i-1].leave,stopIdx:t.stops.indexOf(s)}); prev=s.code; });
-  if(t.returnHome && st.length) legs.push({from:prev,to:t.origin,date:st[st.length-1].leave,ret:true});
+  migrateTrip(t);
+  const fl=t.flights.filter(f=>f.from&&f.to);
+  const legs=fl.map((f,i)=>({from:f.from,to:f.to,date:f.date,ret:i===fl.length-1&&fl.length>1&&f.to===t.flights[0].from}));
   legs.forEach(l=>l.key=`${l.from}-${l.to}-${l.date}`);
   return legs;
 }
@@ -485,13 +518,13 @@ function legConstraints(leg){
   return out;
 }
 function whereOnDate(t,dateStr){ // location code where traveler is on given local date (approx)
-  const st=t.stops.filter(s=>s.code&&s.checkin&&s.leave);
-  for(const s of st){ if(dateStr>=s.checkin && dateStr<s.leave) return s.code; }
-  return t.origin;
+  migrateTrip(t); let loc=t.flights[0]?.from||S.home;
+  for(const f of t.flights){ if(f.to&&f.date&&f.date<=dateStr) loc=f.to; }
+  return loc;
 }
+function tripStart(t){ migrateTrip(t); const ds=t.flights.map(f=>f.date).filter(Boolean).sort(); return ds[0]||""; }
 function tripWindows(t){
-  const st=t.stops.filter(s=>s.code);
-  const start=t.departDate||st[0]?.checkin; const end=(st.length&&st[st.length-1].leave)||start; if(!start||!end) return [];
+  const start=tripStart(t); const end=tripEnd(t)||start; if(!start||!end) return [];
   const out=[]; const seen=new Set();
   // check each Friday/erev in range at location where we'd be
   let d=addDays(start,-1);
@@ -547,14 +580,15 @@ async function aiParse(text,leg){
   const j=await askJSON(`Extract the flight segments from this itinerary text. The trip leg is around ${leg.date} from ${leg.from} to ${leg.to}. Reply ONLY JSON: {"segments":[{"carrier":"XX","flight":"XX123","from":"AAA","to":"BBB","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}],"priceUSD":{"low":0,"high":0},"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}}}. Times are local at each airport. Use priceUSD null if no price. Include every airport used in "airports".\n\nTEXT:\n${text}`,"default");
   absorbAirports(j.airports); return j;
 }
-async function aiHotels(stop,idx){
-  const L=apt(stop.code); const nights=stop.checkin&&stop.leave?Math.round((Date.parse(stop.leave)-Date.parse(stop.checkin))/86400000):null;
-  const R=S.hotelRadiusKm||100; const center=stop.address?`the meeting address "${stop.address}"`:`the centre of ${cityOf(stop.code)}`;
+function aptRaw(code){ const a=AIRPORTS[code]||EXTRA_AIRPORTS[code]; return a?{lat:a[2],lon:a[3],city:a[0],country:a[1]}:null; }
+async function aiHotels(stop){
+  const L=apt(stop.code); const nights=stayNights(stop)||null; const A=aptRaw(stop.code)||L;
+  const R=S.hotelRadiusKm||100; const center=`${cityOf(stop.code)} airport (${stop.code}, at ${A.lat.toFixed(3)}, ${A.lon.toFixed(3)})`;
   const prompt=`Recommend up to 10 hotels for a business traveler within ${R} km of ${center} (${L.country}) — this includes nearby towns and suburbs, not only ${cityOf(stop.code)} itself. ONLY hotels from Hilton's portfolio, limited to these brands: ${S.brands.join(", ")}. Never include a hotel farther than ${R} km; "distanceKm" must be the straight-line distance from ${center}.
 Stay: check-in ${stop.checkin||"?"}, check-out ${stop.leave||"?"}${nights?` (${nights} nights)`:""}.
-${stop.address?`Meetings at: "${stop.address}". Rank by convenience to this address (distance/commute), then quality.`:"No meeting address given: rank by convenience for business (central business district, airport access), then quality."}
+Rank by business convenience (central business district and easy airport access), then quality. "distanceKm" = straight-line km from the airport; "commute" = typical taxi time from the airport.
 Only include hotels you are confident exist and operate under Hilton. Reply with ONLY JSON:
-{"hotels":[{"name":"full official hotel name","brand":"brand","area":"neighborhood","address":"street address","distanceKm":0,"commute":"e.g. 10 min taxi / 8 min walk","rateUSD":{"low":0,"high":0},"why":"one sentence"}],"tip":"one sentence about where to stay in this city"}`;
+{"hotels":[{"name":"full official hotel name","brand":"brand","area":"neighborhood","address":"street address","distanceKm":0,"commute":"e.g. 35 min taxi from airport","rateUSD":{"low":0,"high":0},"why":"one sentence"}],"tip":"one sentence about where to stay in this city"}`;
   const j=await askJSON(prompt,"complex");
   const list=(Array.isArray(j.hotels)?j.hotels:[]).filter(h=>h&&h.name&&(h.distanceKm==null||h.distanceKm===""||+h.distanceKm<=R)).sort((a,b)=>(+a.distanceKm||0)-(+b.distanceKm||0));
   return {results:list,tip:j.tip||"",at:Date.now(),radiusKm:R};
@@ -729,8 +763,7 @@ function getD(el){ return el?(el.dataset.value||""):""; }
 function setD(el,v){ if(!el) return; el.dataset.value=v||""; el.value=dateText(v); }
 function minFor(el){
   const t=todayIL(); let m=t;
-  if(el.dataset.f==="checkin"){ m=[t,getD($("#departDate"))].filter(Boolean).sort().pop(); }
-  if(el.dataset.f==="leave"){ const st=el.closest(".stop"); m=[t,getD($("#departDate")),getD(st&&st.querySelector('[data-f="checkin"]'))].filter(Boolean).sort().pop(); }
+  if(el.dataset.f==="date"){ const i=+el.closest(".flight").dataset.i; for(let k=i-1;k>=0;k--){ const pd=getD(document.querySelector(`.flight[data-i="${k}"] [data-f="date"]`)); if(pd){ m=[t,pd].sort().pop(); break; } } }
   return m;
 }
 let calEl=null, calInput=null, calMonth=null;
@@ -767,7 +800,7 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeCal(); });
 
 // ---------- holidays colliding with the trip ----------
 function tripHolidays(t){
-  const st=t.stops.filter(s=>s.code); const start=t.departDate||st[0]?.checkin; const end=tripEnd(t)||start; if(!start) return [];
+  const start=tripStart(t); const end=tripEnd(t)||start; if(!start) return [];
   const groups=[]; let d=start;
   while(d<=end){
     const code=whereOnDate(t,d); const L=apt(code); const israel=!L||L.country==="IL";
@@ -786,34 +819,69 @@ function holidayBanner(){
   el.innerHTML=`<b>⚠ ${hs.length} Jewish/Israeli holiday${hs.length>1?"s":""} during this trip</b><ul>${hs.map(h=>`<li><b>${esc(h.name)}</b> · ${dayLabel(h.from)}${h.to!==h.from?" – "+dayLabel(h.to):""} · ${h.home?"in Israel":"you'll be in "+esc(h.city)} — ${esc(h.advice)}</li>`).join("")}</ul>`;
 }
 
+// ---------- automatic search: once every flight has From, To and Date ----------
+let autoTimer=null, autoRunning=false, autoAgain=false;
+function tripComplete(t){ return t.flights.length>0 && t.flights.every(f=>f.from&&f.to&&f.date&&apt(f.from)&&apt(f.to)&&f.from!==f.to) && t.flights.every((f,i)=>i===0||f.date>=t.flights[i-1].date); }
+function scheduleAuto(){ clearTimeout(autoTimer); autoTimer=setTimeout(runAuto,1200); }
+function autoStatus(msg){ const el=$("#autoStatus"); if(!el) return; el.classList.toggle("hidden",!msg); el.innerHTML=msg||""; }
+async function runAuto(){
+  if(!sample || !tripComplete(trip)) return;
+  if(autoRunning){ autoAgain=true; return; } autoRunning=true; trip.auto=trip.auto||{};
+  try{
+    const legs=computeLegs(trip); const useLive=!STANDALONE&&mcp&&kiwiState!=="server_not_connected"&&kiwiState!=="blocked_by_policy";
+    for(let i=0;i<legs.length;i++){ const leg=legs[i]; const st=legState(leg.key);
+      if(st.live||st.ai||trip.auto[leg.key]) continue; trip.auto[leg.key]=true;
+      autoStatus(`<span class="spinner" style="border-color:#1f4fd133;border-top-color:#1f4fd1"></span> Finding flights ${i+1}/${legs.length}: ${esc(leg.from)} → ${esc(leg.to)}, ${dayLabel(leg.date)}…`);
+      busy[leg.key]=useLive?"live":"ai"; renderLegs();
+      try{ if(useLive){ try{ st.live=await aiLive([leg],false); }catch(e){ if(String(e.message||"").startsWith("KIWI_")) st.ai=await aiFlights(leg); else throw e; } } else st.ai=await aiFlights(leg); }
+      catch(err){ toast("Flight search for "+leg.from+"→"+leg.to+" failed: "+(err.message||err)); trip.auto[leg.key]=false; }
+      busy[leg.key]=null; renderLegs(); renderSummary();
+    }
+    deriveTrip(trip);
+    const stays=(trip.stops||[]).filter(s=>s.need);
+    for(let i=0;i<stays.length;i++){ const s=stays[i]; if(trip.hotels[s.key]||trip.auto["h:"+s.key]) continue; trip.auto["h:"+s.key]=true;
+      autoStatus(`<span class="spinner" style="border-color:#1f4fd133;border-top-color:#1f4fd1"></span> Finding Hilton hotels near ${esc(s.code)} airport (${i+1}/${stays.length})…`);
+      busy["h"+s.key]=true; renderHotels();
+      try{ trip.hotels[s.key]=await aiHotels(s); }catch(err){ toast("Hotel search failed: "+(err.message||err)); trip.auto["h:"+s.key]=false; }
+      busy["h"+s.key]=false; renderHotels(); renderSummary();
+    }
+    autoStatus(""); await saveTrip(true); ensureWatch();
+  } finally { autoRunning=false; autoStatus(""); if(autoAgain){ autoAgain=false; scheduleAuto(); } }
+}
+
 // ---------- render: plan form ----------
 function renderForm(){
-  const t=trip;
-  $("#tripName").value=t.name; $("#origin").value=aptLabel(t.origin); setD($("#departDate"),t.departDate); $("#returnHome").checked=t.returnHome;
-  $("#stops").innerHTML=t.stops.map((s,i)=>`
-   <div class="stop" data-i="${i}">
-    <div class="top"><span class="num">Stop ${i+1}</span>${t.stops.length>1?`<button class="btn ghost small danger" data-act="rmstop" data-i="${i}">Remove</button>`:""}</div>
-    <label>Destination airport</label><input list="apts" data-f="code" value="${esc(aptLabel(s.code))}" placeholder="e.g. BKK — Bangkok" autocomplete="off">
-    <div class="row"><div><label>Hotel check-in</label><input type="text" readonly class="datepick" placeholder="Pick a date" data-f="checkin" data-value="${esc(s.checkin)}" value="${esc(dateText(s.checkin))}"></div><div><label>Leave on</label><input type="text" readonly class="datepick" placeholder="Pick a date" data-f="leave" data-value="${esc(s.leave)}" value="${esc(dateText(s.leave))}"></div></div>
-    <label>Meeting address (optional)</label><input data-f="address" value="${esc(s.address)}" placeholder="Office / venue address — used to rank hotels">
+  const t=trip; migrateTrip(t);
+  $("#tripName").value=t.name||"";
+  const last=t.flights[t.flights.length-1]; const home=t.flights[0]?.from||S.home;
+  $("#flights").innerHTML=t.flights.map((f,i)=>`
+   <div class="flight stop" data-i="${i}">
+    <div class="top"><span class="num">✈ Flight ${i+1}</span>${t.flights.length>1?`<button type="button" class="btn ghost small danger" data-act="rmflight" data-i="${i}">Remove</button>`:""}</div>
+    <div class="row3 frow"><div><label>From</label><input list="apts" data-f="from" value="${esc(aptLabel(f.from))}" placeholder="TLV" autocomplete="off"></div>
+     <div><label>To</label><input list="apts" data-f="to" value="${esc(aptLabel(f.to))}" placeholder="e.g. BKK" autocomplete="off"></div>
+     <div><label>Date</label><input type="text" readonly class="datepick" placeholder="Pick a date" data-f="date" data-value="${esc(f.date)}" value="${esc(dateText(f.date))}"></div></div>
    </div>`).join("");
+  $("#addReturn").classList.toggle("hidden",!last||!last.to||last.to===home);
+  $("#addReturn").textContent=`＋ Add flight home to ${home}`;
 }
 function readForm(){
-  trip.name=$("#tripName").value.trim(); trip.origin=codeOf($("#origin").value)||S.home; trip.departDate=getD($("#departDate")); trip.returnHome=$("#returnHome").checked;
-  document.querySelectorAll("#stops .stop").forEach(el=>{ const s=trip.stops[+el.dataset.i]; el.querySelectorAll("[data-f]").forEach(inp=>{ const f=inp.dataset.f; s[f]= f==="code"?codeOf(inp.value):inp.classList.contains("datepick")?getD(inp):inp.value; }); });
+  trip.name=$("#tripName").value.trim();
+  document.querySelectorAll("#flights .flight").forEach(el=>{ const f=trip.flights[+el.dataset.i]; if(!f) return;
+    f.from=codeOf(el.querySelector('[data-f="from"]').value); f.to=codeOf(el.querySelector('[data-f="to"]').value); f.date=getD(el.querySelector('[data-f="date"]')); });
+  deriveTrip(trip);
 }
 async function onFormChange(e){
   readForm(); dirty=true;
   const el=e?.target;
-  if(el && el.dataset.f==="leave"){ // auto-fill next stop check-in
-    const i=+el.closest(".stop").dataset.i; const nx=trip.stops[i+1]; if(nx && !nx.checkin){ nx.checkin=getD(el); renderForm(); }
+  if(el && el.dataset.f==="to"){ // next flight usually leaves from where this one lands
+    const i=+el.closest(".flight").dataset.i; const nx=trip.flights[i+1]; if(nx && !nx.from && trip.flights[i].to){ nx.from=trip.flights[i].to; renderForm(); }
   }
-  if(el && el.id==="departDate" && trip.stops[0] && !trip.stops[0].checkin){ trip.stops[0].checkin=getD(el); renderForm(); }
   // unknown airport codes
-  const codes=[trip.origin,...trip.stops.map(s=>s.code)].filter(Boolean);
+  const codes=trip.flights.flatMap(f=>[f.from,f.to]).filter(Boolean);
   for(const c of codes){ if(!apt(c)){ if(sample){ toast(`Looking up airport ${c}…`); const ok=await lookupAirport(c); toast(ok?`Added ${aptLabel(c)}`:`Unknown airport ${c}`); if(ok) renderForm(); } else toast(`Unknown airport ${c} — use a 3-letter IATA code from the list`); } }
-  const sig=JSON.stringify([trip.origin,trip.departDate,trip.returnHome,trip.stops.map(s=>[s.code,s.checkin,s.leave])]);
-  if(sig!==onFormChange._sig){ onFormChange._sig=sig; renderPlan(); } else renderSummary();
+  deriveTrip(trip);
+  const sig=JSON.stringify(trip.flights);
+  if(sig!==onFormChange._sig){ onFormChange._sig=sig; renderPlan(); scheduleAuto(); } else renderSummary();
 }
 
 // ---------- render: dynamic sections ----------
@@ -822,7 +890,7 @@ function renderPlan(){ holidayBanner(); renderShabbat(); renderLegs(); renderHot
 function renderShabbat(){
   const ws=tripWindows(trip);
   const el=$("#shabbatList");
-  if(!trip.departDate && !trip.stops[0]?.checkin){ el.innerHTML=`<div class="empty">Add dates to see Shabbat and holiday times along your route.</div>`; return; }
+  if(!tripStart(trip)){ el.innerHTML=`<div class="empty">Add flight dates to see Shabbat and holiday times along your route.</div>`; return; }
   const hs=tripHolidays(trip).filter(h=>h.kind!=="yomtov");
   const hHtml=hs.map(h=>`<div class="sh"><div class="ic" style="background:${h.kind==="minor"?"#5b6b85":"#a35a00"};color:#fff">${h.kind==="fast"?"⏳":h.kind==="israeli"?"🇮🇱":"🕎"}</div><div style="flex:1"><b>${esc(h.name)} · ${h.home?"Israel":esc(h.city)}</b><small>${dayLabel(h.from)}${h.to!==h.from?" – "+dayLabel(h.to):""} · ${esc(h.advice)}</small></div></div>`).join("");
   if(!ws.length){ el.innerHTML=hHtml||`<div class="empty">No Shabbat or holiday falls during this trip.</div>`; return; }
@@ -936,10 +1004,11 @@ function readSegEditor(key){
 }
 function renderHotels(){
   const el=$("#hotels");
-  const stops=trip.stops.map((s,i)=>({s,i})).filter(x=>x.s.code);
+  const stops=(trip.stops||[]).map(s=>({s,i:s.key})).filter(x=>x.s.code);
   if(!stops.length){ el.innerHTML=""; return; }
   const brandChips=HILTON_BRANDS.map(b=>`<button class="chip ${S.brands.includes(b)?"on":""}" data-act="brand" data-b="${esc(b)}">${esc(b)}</button>`).join("");
   el.innerHTML=stops.map(({s,i})=>{
+    if(!s.need) return s.why==="Home"?"":`<div class="card"><div class="leghead"><div class="route">🏨 ${esc(cityOf(s.code))}</div>${s.checkin?`<span class="pill gray">${dayLabel(s.checkin)}</span>`:""}</div><div class="note">${esc(s.why)}</div></div>`;
     const L=apt(s.code); const st=trip.hotels[i]||{}; const b=busy["h"+i];
     const ws=tripWindows(trip).filter(w=>w.code===s.code);
     let res="";
@@ -947,15 +1016,15 @@ function renderHotels(){
       const sel=st.selected===hi; const r=h.rateUSD; const rate=r&&(r.low||r.high)?`$${Math.round(r.low||r.high)}${r.high&&r.low&&r.high!==r.low?"–"+Math.round(r.high):""}`:"";
       const q=h.name+" "+(h.address||cityOf(s.code));
       return `<div class="hotel ${sel?"sel":""}"><div class="ohead"><div><div class="title">${esc(h.name)}</div><div class="meta">${esc(h.brand||"")}${h.area?" · "+esc(h.area):""}</div></div><div class="price">${rate||"—"}<small>${rate?"per night, typical":""}</small></div></div>
-        <div class="tags">${h.distanceKm!=null&&h.distanceKm!==""?`<span class="pill">${esc(h.distanceKm)} km ${s.address?"to meeting":"to center"}</span>`:""}${h.commute?`<span class="pill gray">${esc(h.commute)}</span>`:""}</div>
+        <div class="tags">${h.distanceKm!=null&&h.distanceKm!==""?`<span class="pill">${esc(h.distanceKm)} km from ${esc(s.code)} airport</span>`:""}${h.commute?`<span class="pill gray">${esc(h.commute)}</span>`:""}</div>
         ${h.why?`<div class="note">${esc(h.why)}</div>`:""}
-        <div class="btns" style="margin-top:8px"><button class="btn small ${sel?"primary":""}" data-act="pickhotel" data-i="${i}" data-h="${hi}">${sel?"✓ Selected":"Select"}</button>
+        <div class="btns" style="margin-top:8px"><button class="btn small ${sel?"primary":""}" data-act="pickhotel" data-i="${esc(i)}" data-h="${hi}">${sel?"✓ Selected":"Select"}</button>
         <a class="btn small ghost" target="_blank" rel="noopener" href="https://www.hilton.com/en/search/?query=${enc(h.name)}&arrivalDate=${s.checkin}&departureDate=${s.leave}">Rates on Hilton ↗</a>
         <a class="btn small ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${enc(q)}">Map ↗</a>
         ${s.address?`<a class="btn small ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&origin=${enc(q)}&destination=${enc(s.address)}">Route to meeting ↗</a>`:""}</div></div>`; }).join(""); }
-    return `<div class="card"><div class="leghead"><div class="route">Hilton hotels · ${esc(cityOf(s.code))} <span>within ${S.hotelRadiusKm||100} km of ${s.address?"your meeting":"the centre"}</span></div><span class="pill gray">${s.checkin?dayLabel(s.checkin):"?"} → ${s.leave?dayLabel(s.leave):"?"}</span></div>
+    return `<div class="card"><div class="leghead"><div class="route">Hilton hotels · ${esc(cityOf(s.code))} <span>within ${S.hotelRadiusKm||100} km of ${esc(s.code)} airport</span></div><span class="pill gray">${dayLabel(s.checkin)} → ${dayLabel(s.leave)} · ${stayNights(s)} night${stayNights(s)>1?"s":""}</span></div>
       ${ws.length?`<div class="constraints"><span class="pill gray">✡ Over ${esc(ws.map(w=>w.name).join(", "))} here</span></div>`:""}
-      <div class="btns"><button class="btn primary" data-act="aihotels" data-i="${i}" ${!sample||b?"disabled":""}>${b?`<span class="spinner"></span> Searching…`:st.results?"↻ Search again":"✦ Find Hilton hotels"}</button></div>
+      <div class="btns"><button class="btn primary" data-act="aihotels" data-i="${esc(i)}" ${!sample||b?"disabled":""}>${b?`<span class="spinner"></span> Searching…`:st.results?"↻ Search again":"✦ Find Hilton hotels"}</button></div>
       <div class="links">${hotelLinks(s).map(([n,u])=>`<a class="btn small" target="_blank" rel="noopener" href="${u}">${esc(n)} ↗</a>`).join("")}</div>
       ${res}</div>`;
   }).join("")+`<div class="card"><h2>Hilton brands to include</h2><p class="hint">Tap to toggle. Applies to new hotel searches.</p><div class="chips">${brandChips}</div></div>`;
@@ -964,7 +1033,7 @@ function renderSummary(){
   const legs=computeLegs(trip); const lines=[];
   legs.forEach(l=>{ const st=trip.legs[l.key]; const o=st?.selected; if(o){ const a=analyzeOption(o,S); lines.push(`<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span>${esc((o.segments||[]).map(s=>s.flight).join(" + "))} · ${a.depU?fmtDT(a.depU,apt(o.segments[0].from).tz):""} → ${a.arrU?fmtDT(a.arrU,apt(o.segments[o.segments.length-1].to).tz):""} ${a.shabbat==="ok"?"✓":a.shabbat==="tight"?"⚠":"✕"}</span></div>`);} else if(l.date) lines.push(`<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span class="meta">${dayLabel(l.date)} · flight not chosen</span></div>`); });
   if(trip.multi&&trip.multi.selected!=null){ const o=trip.multi.ai.options[trip.multi.selected]; const p=o&&o.priceUSD; lines.unshift(`<div class="it"><b>🎫 Ticket</b><span>${esc(o.ticketing||"Multi-city itinerary")}${p&&(p.low||p.high)?` · ~$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:""}</span></div>`); }
-  trip.stops.forEach((s,i)=>{ if(!s.code) return; const h=trip.hotels[i]; const sel=h&&h.selected!=null?h.results[h.selected]:null; lines.push(`<div class="it"><b>🏨 ${esc(s.code)}</b><span ${sel?"":'class="meta"'}>${sel?esc(sel.name):"hotel not chosen"}</span></div>`); });
+  (trip.stops||[]).filter(s=>s.need).forEach(s=>{ const i=s.key; const h=trip.hotels[i]; const sel=h&&h.selected!=null?h.results[h.selected]:null; lines.push(`<div class="it"><b>🏨 ${esc(s.code)}</b><span ${sel?"":'class="meta"'}>${sel?esc(sel.name):"hotel not chosen"}</span></div>`); });
   if(trip.seatAlert){ const a=trip.seatAlert; lines.push(`<div class="it"><b>🔔 Seat</b><span>Window/aisle alert on ${esc(a.flight)} ${esc(a.from||"")}→${esc(a.to||"")} ${a.date?dayLabel(a.date):""} <span class="meta">(ExpertFlyer email/SMS)</span> <button class="btn ghost small" data-act="clearseatalert">Remove</button></span></div>`); }
   tripWindows(trip).forEach(w=>lines.push(`<div class="it"><b>✡ ${esc(w.code)}</b><span>${esc(w.name)} ${fmtDT(w.start,w.loc.tz)} – ${fmtTime(w.end,w.loc.tz)}</span></div>`));
   $("#summary").innerHTML=lines.length?lines.join(""):`<div class="meta">Your selected flights, hotels and Shabbat times will appear here.</div>`;
@@ -972,7 +1041,7 @@ function renderSummary(){
 function summaryText(){
   const legs=computeLegs(trip); const out=[`${trip.name||"Business trip"}`];
   legs.forEach(l=>{ const o=trip.legs[l.key]?.selected; if(o){ out.push(`✈ ${l.from}→${l.to}: `+o.segments.map(s=>`${s.flight} ${s.from} ${s.dep.replace("T"," ")} → ${s.to} ${s.arr.replace("T"," ")}`).join(" | ")); } });
-  trip.stops.forEach((s,i)=>{ const h=trip.hotels[i]; if(h&&h.selected!=null) out.push(`🏨 ${cityOf(s.code)}: ${h.results[h.selected].name} (${s.checkin} → ${s.leave})`); });
+  (trip.stops||[]).filter(s=>s.need).forEach(s=>{ const h=trip.hotels[s.key]; if(h&&h.selected!=null) out.push(`🏨 ${cityOf(s.code)}: ${h.results[h.selected].name} (${s.checkin} → ${s.leave})`); });
   tripWindows(trip).forEach(w=>out.push(`✡ ${w.name} in ${w.loc.city}: candles ${fmtDT(w.start,w.loc.tz)}, ends ${fmtDT(w.end,w.loc.tz)}`));
   return out.join("\n");
 }
@@ -980,8 +1049,8 @@ function summaryText(){
 // ---------- trips & settings ----------
 function renderTrips(){
   const el=$("#tripList");
-  const list=trips.slice().sort((a,b)=>(a.departDate||"").localeCompare(b.departDate||""));
-  el.innerHTML=list.length?list.map(t=>{ const st=t.stops.filter(s=>s.code).map(s=>s.code); return `<div class="trip"><div><b>${esc(t.name||[t.origin,...st].join(" → "))}</b><small>${t.departDate?dayLabel(t.departDate):"no date"} · ${esc([t.origin,...st,...(t.returnHome?[t.origin]:[])].join(" → "))}</small></div>
+  const list=trips.slice().sort((a,b)=>tripStart(a).localeCompare(tripStart(b)));
+  el.innerHTML=list.length?list.map(t=>{ migrateTrip(t); const route=[t.flights[0]?.from,...t.flights.map(f=>f.to)].filter(Boolean).join(" → "); const sd=tripStart(t); return `<div class="trip"><div><b>${esc(t.name||route)}</b><small>${sd?dayLabel(sd):"no date"} · ${esc(route)}</small></div>
     <div style="display:flex;gap:6px"><button class="btn small" data-act="open" data-id="${t.id}">Open</button><button class="btn small ghost danger" data-act="del" data-id="${t.id}">Delete</button></div></div>`; }).join(""):`<div class="empty">No saved trips yet. Plan one and tap “Save trip”.</div>`;
   $("#storeNote").textContent= col?"Trips sync to your Claude account — they're available on your phone and PC.":(STANDALONE?"Trips are stored in this browser only — set up the cloud helper in Settings to sync phone ↔ PC.":"Trips are stored in this browser only (sign in to Claude to sync across devices).");
 }
@@ -1021,8 +1090,9 @@ document.addEventListener("click",async e=>{
   if(b.dataset.tab){ show(b.dataset.tab); return; }
   const act=b.dataset.act, key=b.dataset.leg;
   const leg=key?computeLegs(trip).find(l=>l.key===key):null;
-  if(act==="addstop"){ readForm(); const last=trip.stops[trip.stops.length-1]; trip.stops.push({code:"",checkin:last?.leave||"",leave:"",address:""}); renderForm(); renderPlan(); }
-  if(act==="rmstop"){ readForm(); trip.stops.splice(+b.dataset.i,1); const h={}; Object.entries(trip.hotels).forEach(([k,v])=>{ k=+k; if(k<+b.dataset.i) h[k]=v; else if(k>+b.dataset.i) h[k-1]=v; }); trip.hotels=h; renderForm(); renderPlan(); }
+  if(act==="addflight"){ readForm(); const last=trip.flights[trip.flights.length-1]; trip.flights.push({from:last?.to||"",to:"",date:""}); deriveTrip(trip); renderForm(); renderPlan(); }
+  if(act==="addreturn"){ readForm(); const last=trip.flights[trip.flights.length-1]; trip.flights.push({from:last?.to||"",to:trip.flights[0]?.from||S.home,date:""}); deriveTrip(trip); renderForm(); renderPlan(); }
+  if(act==="rmflight"){ readForm(); trip.flights.splice(+b.dataset.i,1); deriveTrip(trip); renderForm(); renderPlan(); scheduleAuto(); }
   if(act==="aiflights"&&leg){ busy[key]="ai"; renderLegs(); try{ const r=await aiFlights(leg); legState(key).ai=r; autosave(); ensureWatch(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":err.code==="not_granted"?"AI access was not granted":"Search failed: "+(err.message||err)); } busy[key]=null; renderLegs(); renderSummary(); }
   if(act==="togglemanual"){ const m=document.getElementById("man-"+key); m.classList.toggle("hidden"); if(!draftSegs[key]){ draftSegs[key]=[{flight:"",from:leg.from,to:leg.to,dep:leg.date+"T",arr:""}]; draftSegs[key][0].dep=""; } renderSegEditor(leg); }
   if(act==="addseg"){ readSegEditor(key); const segs=draftSegs[key]||(draftSegs[key]=[]); const prev=segs[segs.length-1]; segs.push({flight:"",from:prev?.to||leg.from,to:leg.to,dep:"",arr:""}); renderSegEditor(leg); }
@@ -1033,7 +1103,7 @@ document.addEventListener("click",async e=>{
     const pr=+draftSegs[key+"#price"]; const o={segments:segs.map(s=>({...s})),priceUSD:pr?{low:pr,high:pr}:null,notes:"Entered manually"};
     const st=legState(key); (st.manual||(st.manual=[])).push(o); delete draftSegs[key]; delete draftSegs[key+"#price"]; autosave(); renderLegs(); renderSummary();
     const a=analyzeOption(o,S); toast(a.shabbat==="ok"?"✓ Shabbat-safe":a.shabbat==="tight"?"⚠ Tight to Shabbat":"✕ Conflicts with Shabbat"); }
-  if(act==="pick"){ const st=legState(key); const o=b.dataset.src==="manual"?st.manual[+b.dataset.idx]:b.dataset.src==="live"?st.live.options[+b.dataset.idx]:st.ai.options[+b.dataset.idx]; st.selected= (st.selected&&JSON.stringify(st.selected.segments)===JSON.stringify(o.segments))?null:o; if(trip.multi) trip.multi.selected=null; autosave(); renderLegs(); renderSummary(); }
+  if(act==="pick"){ const st=legState(key); const o=b.dataset.src==="manual"?st.manual[+b.dataset.idx]:b.dataset.src==="live"?st.live.options[+b.dataset.idx]:st.ai.options[+b.dataset.idx]; st.selected= (st.selected&&JSON.stringify(st.selected.segments)===JSON.stringify(o.segments))?null:o; if(trip.multi) trip.multi.selected=null; deriveTrip(trip); autosave(); renderLegs(); renderHotels(); renderSummary(); }
   if(act==="live"&&leg){ busy[key]="live"; renderLegs(); try{ legState(key).live=await aiLive([leg],false); autosave(); ensureWatch(); }catch(err){ toast(String(err.message||"").startsWith("KIWI_")?kiwiErrorText():err.code==="rate_limited"?"AI is busy — try again in a minute":"Live search failed: "+(err.message||err)); } busy[key]=null; renderLegs(); renderSummary(); }
   if(act==="livemulti"){ const legs=computeLegs(trip); busy.multi="live"; renderLegs(); try{ const ai=await aiLive(legs,true); trip.multi={ai,sig:ai.sig,selected:null}; autosave(); ensureWatch(); }catch(err){ toast(String(err.message||"").startsWith("KIWI_")?kiwiErrorText():"Live search failed: "+(err.message||err)); } busy.multi=false; renderLegs(); renderSummary(); }
   if(act==="aimulti"){ const legs=computeLegs(trip); busy.multi=true; renderLegs(); try{ const ai=await aiMulti(legs); trip.multi={ai,sig:ai.sig,selected:null}; autosave(); ensureWatch(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":"Search failed: "+(err.message||err)); } busy.multi=false; renderLegs(); renderSummary(); }
@@ -1041,12 +1111,12 @@ document.addEventListener("click",async e=>{
     if(m.selected===i){ m.selected=null; legs.forEach(l=>{ const st=legState(l.key); if(st.selected&&st.selected.multi) st.selected=null; }); }
     else { m.selected=i; legs.forEach((l,k)=>{ const lg=o.legs[k]; if(lg) legState(l.key).selected={segments:lg.segments,priceUSD:null,notes:"Part of multi-city itinerary",multi:true}; }); }
     autosave(); renderLegs(); renderSummary(); }
-  if(act==="aihotels"){ const i=+b.dataset.i; busy["h"+i]=true; renderHotels(); try{ trip.hotels[i]=await aiHotels(trip.stops[i],i); autosave(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":"Search failed: "+(err.message||err)); } busy["h"+i]=false; renderHotels(); renderSummary(); }
-  if(act==="pickhotel"){ const h=trip.hotels[+b.dataset.i]; const hi=+b.dataset.h; h.selected=h.selected===hi?null:hi; autosave(); renderHotels(); renderSummary(); }
+  if(act==="aihotels"){ const i=b.dataset.i; const stay=(trip.stops||[]).find(s=>s.key===i); if(!stay) return; busy["h"+i]=true; renderHotels(); try{ trip.hotels[i]=await aiHotels(stay); autosave(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":"Search failed: "+(err.message||err)); } busy["h"+i]=false; renderHotels(); renderSummary(); }
+  if(act==="pickhotel"){ const h=trip.hotels[b.dataset.i]; const hi=+b.dataset.h; h.selected=h.selected===hi?null:hi; autosave(); renderHotels(); renderSummary(); }
   if(act==="brand"){ const x=b.dataset.b; S.brands=S.brands.includes(x)?S.brands.filter(y=>y!==x):[...S.brands,x]; if(!S.brands.length) S.brands=[x]; saveSettings(); b.classList.toggle("on",S.brands.includes(x)); }
   if(act==="save"){ await saveTrip(); }
   if(act==="new"){ if(dirty && !b.dataset.confirm){ b.dataset.confirm="1"; b.textContent="Tap again to discard"; setTimeout(()=>{ b.textContent="New trip"; delete b.dataset.confirm; },2500); return; } trip=newTrip(); dirty=false; renderForm(); renderPlan(); show("plan"); toast("New trip"); b.textContent="New trip"; delete b.dataset.confirm; }
-  if(act==="open"){ const t=trips.find(x=>x.id===b.dataset.id); if(t){ trip=JSON.parse(JSON.stringify(t)); dirty=false; renderForm(); renderPlan(); show("plan"); } }
+  if(act==="open"){ const t=trips.find(x=>x.id===b.dataset.id); if(t){ trip=deriveTrip(JSON.parse(JSON.stringify(t))); dirty=false; onFormChange._sig=JSON.stringify(trip.flights); renderForm(); renderPlan(); show("plan"); } }
   if(act==="del"){ if(!b.dataset.confirm){ b.dataset.confirm="1"; b.textContent="Confirm delete"; setTimeout(()=>{ b.textContent="Delete"; delete b.dataset.confirm; },2500); return; } await deleteTrip(b.dataset.id); }
   if(act==="watch"){ await toggleWatch(); }
   if(act==="seatalert"){ // the link itself opens ExpertFlyer; here we copy the flight details and remember which flight holds the 1 free alert
@@ -1132,7 +1202,7 @@ function watchPayload(){
   const codes=[...new Set(legs.flatMap(l=>[l.from,l.to]))];
   const wins=[]; codes.forEach(c=>{ const L=apt(c); holyWindows(L,addDays(legs[0].date,-1),addDays(legs[legs.length-1].date,2),S).forEach(w=>wins.push({code:c,name:w.name,startUtc:new Date(w.start).toISOString(),endUtc:new Date(w.end).toISOString(),startLocal:fmtDT(w.start,L.tz),endLocal:fmtDT(w.end,L.tz)})); });
   const tz={}; codes.forEach(c=>tz[c]=apt(c).tz);
-  return {tripId:trip.id,name:trip.name||[trip.origin,...trip.stops.map(s=>s.code)].join(" → "),enabled:true,
+  return {tripId:trip.id,name:trip.name||[trip.flights[0]?.from,...trip.flights.map(f=>f.to)].filter(Boolean).join(" → "),enabled:true,
     legs:legs.map(l=>({from:l.from,to:l.to,date:l.date})),prefAirlines:S.prefAirlines,includeLCC:!!S.includeLCC,cabin:S.cabin,
     cheaperByUSD:S.cheaperByUSD,bufBeforeHours:S.bufBefore,bufAfterHours:S.bufAfter,minConnHours:S.minConn,shabbatWindows:wins,airportTz:tz,updatedAt:new Date().toISOString()};
 }
@@ -1152,7 +1222,7 @@ function renderWatch(){
     ${on?"":`<button class="btn small primary" data-act="watch">Watch</button>`}</div>
     ${on&&last&&Array.isArray(last.alerts)&&last.alerts.length?`<ul style="margin:8px 0 0;padding-left:18px;font-size:13px">${last.alerts.slice(0,8).map(a=>`<li>${esc(a)}</li>`).join("")}</ul>`:""}`;
 }
-function tripEnd(t){ const st=t.stops.filter(s=>s.code); const ds=[t.departDate,...st.map(s=>s.leave),...st.map(s=>s.checkin)].filter(Boolean).sort(); return ds[ds.length-1]||""; }
+function tripEnd(t){ migrateTrip(t); const ds=t.flights.map(f=>f.date).filter(Boolean).sort(); return ds[ds.length-1]||""; }
 function todayIL(){ const p=zoneParts(Date.now(),"Asia/Jerusalem"); return ymd(p.y,p.m,p.d); }
 // A trip is watched automatically once it has been queried; it stays until deleted or its dates pass.
 async function ensureWatch(){
