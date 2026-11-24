@@ -96,6 +96,45 @@ input.datepick{cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xml
 
 .frow{grid-template-columns:1fr 1fr 1.1fr}@media(max-width:640px){.frow{grid-template-columns:1fr 1fr}.frow>div:last-child{grid-column:1/-1}}
 #autoStatus{display:flex;align-items:center;gap:8px}#autoStatus.hidden{display:none}
+
+/* ===== Dark mode: follows the phone / PC setting ===== */
+:root{color-scheme:light dark}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0e1420;--card:#172131;--ink:#e6ebf3;--muted:#9aa8bf;--line:#2a374d;--brand:#5b8cff;--brand2:#1d2c4d;--ok:#4cc38a;--okbg:#14352a;--warn:#f0b35a;--warnbg:#3a2a12;--bad:#ff7a6e;--badbg:#3d1c1b;--gold:#e0c36b}
+  body{background:var(--bg);color:var(--ink)}
+  header{background:#0a0f18;border-bottom:1px solid var(--line)}
+  .card{box-shadow:none}
+  input,select,textarea{background:#0f1726;color:var(--ink);border-color:#33435c}
+  input::placeholder,textarea::placeholder{color:#6f7f99}
+  input.datepick{background-color:#0f1726}
+  .btn{background:#1b2638;color:var(--ink);border-color:#33435c}.btn:hover{border-color:#4a5d7c}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.primary:hover{background:#4a7cf0}
+  .btn.ghost{background:transparent;border-color:transparent;color:#8fb0ff}
+  .stop{background:#121b2a;border-color:#33435c}
+  .sh{background:#121b2a}
+  .opt,.hotel,.trip,.prov{background:#131d2c}
+  .segs li{border-top-color:#243045}
+  .pill{background:var(--brand2);color:#a9c1ff}.pill.gray{background:#223047;color:var(--muted)}.pill.gold{background:#3a3014;color:var(--gold)}
+  .pill[style*="f1e8ff"]{background:#2e2147!important;color:#c9a8ff!important}
+  .chip{background:#1b2638;border-color:#33435c;color:var(--ink)}.chip.on{background:#e6ebf3;border-color:#e6ebf3;color:#0e1420}
+  .gobtn{background:#e6ebf3;color:#0e1420}.gobtn:hover{background:#fff}
+  details.booking{background:#0f1726}
+  .banner{background:var(--warnbg);color:var(--warn)}.banner.info{background:var(--brand2);color:#a9c1ff}
+  .savebar{background:#0e1420f2;border-top-color:var(--line)}
+  .mobnav{background:#0e1420;border-top-color:var(--line)}
+  .toast{background:#e6ebf3;color:#0e1420}
+  .cal{background:#172131;border-color:var(--line);box-shadow:0 12px 32px #0008}
+  .calh button{background:#223047;color:var(--ink)}
+  .cd{color:var(--ink)}.cd.we{background:#262a1f}.cd.dis{color:#46536b}.cd:hover:not(:disabled){background:var(--brand2)}
+  .sh .ic{background:#0a0f18}
+  .spinner{border-color:#ffffff40;border-top-color:#fff}
+}
+
+.tripbar{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;margin-bottom:4px;scrollbar-width:thin}
+.tchip{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;font:inherit;padding:9px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;max-width:230px}
+.tchip b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}.tchip small{font-size:12px;color:var(--muted)}
+.tchip.on{border-color:var(--brand);box-shadow:0 0 0 2px #1f4fd133}.tchip.add{border-style:dashed;color:var(--brand)}.tchip.add b{color:var(--brand)}
+.trip small{display:block}.trip.cur{border-color:var(--brand)}
 </style>
 </head>
 <body>
@@ -104,9 +143,9 @@ input.datepick{cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xml
   <nav><button class="tabbtn on" data-tab="plan">Plan</button><button class="tabbtn" data-tab="trips">My trips</button><button class="tabbtn" data-tab="settings">Settings</button></nav>
 </header>
 <main>
-  <div id="aiNote" class="banner hidden">AI search isn't available in this view — Shabbat checks, flight checks and search links still work.</div>
 
   <section id="view-plan">
+    <div id="tripBar" class="tripbar"></div>
     <div id="holidayWarn" class="banner hidden"></div>
     <div id="autoStatus" class="banner info hidden"></div>
     <div class="grid two">
@@ -129,7 +168,7 @@ input.datepick{cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xml
   </section>
 
   <section id="view-trips" class="hidden">
-    <div class="card"><div class="leghead"><h2>My trips</h2><button class="btn small primary" data-act="new">New trip</button></div><p class="hint" id="storeNote"></p><div id="tripList"></div></div>
+    <div class="card"><div class="leghead"><h2>My trips</h2><button class="btn small primary" data-act="new">＋ New trip</button></div><p class="hint" id="storeNote"></p><div id="tripList"></div></div>
   </section>
 
   <section id="view-settings" class="hidden">
@@ -159,14 +198,14 @@ input.datepick{cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xml
     </form>
     <div class="card standalone-only hidden" style="max-width:640px;margin-top:16px">
       <h2>Cloud helper (sync + AI)</h2>
-      <p class="hint">Your free Cloudflare Worker from the setup guide. Stored only on this device.</p>
+      <p class="hint">Optional. Adds AI hotel search and phone ↔ PC sync to the GitHub version. Use your free Cloudflare Worker from the setup guide. Stored only on this device.</p>
       <label>Worker URL</label><input id="cUrl" placeholder="https://trip-helper.yourname.workers.dev" autocomplete="off">
       <label>Access key</label><input id="cKey" type="password" autocomplete="off">
       <div class="btns"><button type="button" class="btn primary small" id="cSave">Save &amp; connect</button></div>
     </div>
   </section>
 </main>
-<div id="savebar" class="savebar"><button class="btn" data-act="new">New trip</button><button class="btn primary" data-act="save">Save trip</button></div>
+<div id="savebar" class="savebar"><button class="btn" data-act="new">＋ New trip</button><button class="btn primary" data-act="save">Save trip</button></div>
 <nav class="mobnav"><button class="on" data-tab="plan"><span class="i">🗺</span>Plan</button><button data-tab="trips"><span class="i">🧳</span>My trips</button><button data-tab="settings"><span class="i">⚙</span>Settings</button></nav>
 <div id="toast" class="toast"></div>
 <datalist id="apts"></datalist>
@@ -490,6 +529,7 @@ function deriveTrip(t){
   return t;
 }
 function stayNights(s){ return s.checkin&&s.leave?Math.round((Date.parse(s.leave)-Date.parse(s.checkin))/86400000):0; }
+function normP(p){ if(p==null||p==="") return null; if(typeof p==="number"||typeof p==="string"){ const v=+p; return v?{low:v,high:v}:null; } return p; }
 function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),2200); }
 function syncExtra(){ Object.assign(EXTRA_AIRPORTS,S.extraAirports||{}); }
 function codeOf(v){ const m=/^\s*([A-Za-z]{3})\b/.exec(v||""); return m?m[1].toUpperCase():""; }
@@ -647,7 +687,7 @@ function multiCard(legs){
 }
 function multiOpt(x,legs,m,idx){
   const a=x.a,o=x.o; const sel=m.selected===idx;
-  const p=o.priceUSD; const price=p&&(p.low||p.high)?`$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:"";
+  const p=normP(o.priceUSD); const price=p&&(p.low||p.high)?`$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:"";
   const tags=[];
   if(a.preferred==="all") tags.push(`<span class="pill gold">★ Preferred airline</span>`); else if(a.preferred==="some") tags.push(`<span class="pill gold">☆ Partly ${S.prefAirlines.join("/")}</span>`);
   tags.push(...lccTags(a,o));
@@ -709,7 +749,7 @@ const AIRLINE_SITES={LY:["El Al","https://www.elal.com/en/"],TG:["Thai Airways",
  TR:["Scoot","https://www.flyscoot.com/"],IB:["Iberia","https://www.iberia.com/"],GQ:["SKY express","https://www.skyexpress.gr/"],PC:["Pegasus","https://www.flypgs.com/"],MH:["Malaysia Airlines","https://www.malaysiaairlines.com/"],VN:["Vietnam Airlines","https://www.vietnamairlines.com/"],PR:["Philippine Airlines","https://www.philippineairlines.com/"],"6E":["IndiGo","https://www.goindigo.in/"]};
 function bookingRows(o,leg){
   const segs=o.segments||[]; const d=(segs[0]?.dep||leg.date||"").slice(0,10); const f=segs[0]?.from||leg.from, t=segs[segs.length-1]?.to||leg.to;
-  const p=o.priceUSD; const price=p&&(p.low||p.high)?Math.round(p.low||p.high):null;
+  const p=normP(o.priceUSD); const price=p&&(p.low||p.high)?Math.round(p.low||p.high):null;
   const rows=[];
   if(o.bookingUrl) rows.push({name:"Kiwi.com",tag:"Live price",price:price!=null?`$${price.toLocaleString()}`:"",url:o.bookingUrl,note:"Price from this search"});
   const carriers=[...new Set(segs.map(s=>(s.carrier||(s.flight||"").slice(0,2)).toUpperCase()))];
@@ -826,26 +866,28 @@ function scheduleAuto(){ clearTimeout(autoTimer); autoTimer=setTimeout(runAuto,1
 function autoStatus(msg){ const el=$("#autoStatus"); if(!el) return; el.classList.toggle("hidden",!msg); el.innerHTML=msg||""; }
 async function runAuto(){
   if(!sample || !tripComplete(trip)) return;
-  if(autoRunning){ autoAgain=true; return; } autoRunning=true; trip.auto=trip.auto||{};
+  if(autoRunning){ autoAgain=true; return; } autoRunning=true; const T=trip; T.auto=T.auto||{};
+  const here=()=>trip===T; const st_=k=>T.legs[k]||(T.legs[k]={});
   try{
-    const legs=computeLegs(trip); const useLive=!STANDALONE&&mcp&&kiwiState!=="server_not_connected"&&kiwiState!=="blocked_by_policy";
-    for(let i=0;i<legs.length;i++){ const leg=legs[i]; const st=legState(leg.key);
-      if(st.live||st.ai||trip.auto[leg.key]) continue; trip.auto[leg.key]=true;
-      autoStatus(`<span class="spinner" style="border-color:#1f4fd133;border-top-color:#1f4fd1"></span> Finding flights ${i+1}/${legs.length}: ${esc(leg.from)} → ${esc(leg.to)}, ${dayLabel(leg.date)}…`);
-      busy[leg.key]=useLive?"live":"ai"; renderLegs();
+    const legs=computeLegs(T); const useLive=!STANDALONE&&mcp&&kiwiState!=="server_not_connected"&&kiwiState!=="blocked_by_policy";
+    for(let i=0;i<legs.length;i++){ const leg=legs[i]; const st=st_(leg.key);
+      if(st.live||st.ai||T.auto[leg.key]) continue; T.auto[leg.key]=true;
+      if(here()) autoStatus(`<span class="spinner" style="border-color:#1f4fd133;border-top-color:#1f4fd1"></span> Finding flights ${i+1}/${legs.length}: ${esc(leg.from)} → ${esc(leg.to)}, ${dayLabel(leg.date)}…`);
+      busy[leg.key]=useLive?"live":"ai"; if(here()) renderLegs();
       try{ if(useLive){ try{ st.live=await aiLive([leg],false); }catch(e){ if(String(e.message||"").startsWith("KIWI_")) st.ai=await aiFlights(leg); else throw e; } } else st.ai=await aiFlights(leg); }
-      catch(err){ toast("Flight search for "+leg.from+"→"+leg.to+" failed: "+(err.message||err)); trip.auto[leg.key]=false; }
-      busy[leg.key]=null; renderLegs(); renderSummary();
+      catch(err){ toast("Flight search for "+leg.from+"→"+leg.to+" failed: "+(err.message||err)); T.auto[leg.key]=false; }
+      busy[leg.key]=null; if(here()){ renderLegs(); renderSummary(); }
     }
-    deriveTrip(trip);
-    const stays=(trip.stops||[]).filter(s=>s.need);
-    for(let i=0;i<stays.length;i++){ const s=stays[i]; if(trip.hotels[s.key]||trip.auto["h:"+s.key]) continue; trip.auto["h:"+s.key]=true;
-      autoStatus(`<span class="spinner" style="border-color:#1f4fd133;border-top-color:#1f4fd1"></span> Finding Hilton hotels near ${esc(s.code)} airport (${i+1}/${stays.length})…`);
-      busy["h"+s.key]=true; renderHotels();
-      try{ trip.hotels[s.key]=await aiHotels(s); }catch(err){ toast("Hotel search failed: "+(err.message||err)); trip.auto["h:"+s.key]=false; }
-      busy["h"+s.key]=false; renderHotels(); renderSummary();
+    deriveTrip(T);
+    const stays=(T.stops||[]).filter(s=>s.need);
+    for(let i=0;i<stays.length;i++){ const s=stays[i]; if(T.hotels[s.key]||T.auto["h:"+s.key]) continue; T.auto["h:"+s.key]=true;
+      if(here()) autoStatus(`<span class="spinner" style="border-color:#1f4fd133;border-top-color:#1f4fd1"></span> Finding Hilton hotels near ${esc(s.code)} airport (${i+1}/${stays.length})…`);
+      busy["h"+s.key]=true; if(here()) renderHotels();
+      try{ T.hotels[s.key]=await aiHotels(s); }catch(err){ toast("Hotel search failed: "+(err.message||err)); T.auto["h:"+s.key]=false; }
+      busy["h"+s.key]=false; if(here()){ renderHotels(); renderSummary(); }
     }
-    autoStatus(""); await saveTrip(true); ensureWatch();
+    autoStatus(""); await saveTripObj(T,true); ensureWatch(T);
+    if(!here() && trip.id===T.id){ trip=T; renderPlan(); }
   } finally { autoRunning=false; autoStatus(""); if(autoAgain){ autoAgain=false; scheduleAuto(); } }
 }
 
@@ -882,6 +924,7 @@ async function onFormChange(e){
   deriveTrip(trip);
   const sig=JSON.stringify(trip.flights);
   if(sig!==onFormChange._sig){ onFormChange._sig=sig; renderPlan(); scheduleAuto(); } else renderSummary();
+  autosave();
 }
 
 // ---------- render: dynamic sections ----------
@@ -902,7 +945,7 @@ function legState(key){ return trip.legs[key]||(trip.legs[key]={}); }
 function optCard(x,leg,st,idx,extraTags=""){
   const a=x.a,o=x.o; const sel=st.selected && JSON.stringify(st.selected.segments)===JSON.stringify(o.segments);
   const segs=a.segs||o.segments||[];
-  const p=o.priceUSD; const price=p&&(p.low||p.high)?`$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:"";
+  const p=normP(o.priceUSD); const price=p&&(p.low||p.high)?`$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:"";
   const tags=[];
   if(a.preferred==="all") tags.push(`<span class="pill gold">★ Preferred airline</span>`); else if(a.preferred==="some") tags.push(`<span class="pill gold">☆ Partly ${S.prefAirlines.join("/")}</span>`);
   if(o.source==="kiwi") tags.push(`<span class="pill ok">⚡ Live price</span>`);
@@ -1032,7 +1075,7 @@ function renderHotels(){
 function renderSummary(){
   const legs=computeLegs(trip); const lines=[];
   legs.forEach(l=>{ const st=trip.legs[l.key]; const o=st?.selected; if(o){ const a=analyzeOption(o,S); lines.push(`<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span>${esc((o.segments||[]).map(s=>s.flight).join(" + "))} · ${a.depU?fmtDT(a.depU,apt(o.segments[0].from).tz):""} → ${a.arrU?fmtDT(a.arrU,apt(o.segments[o.segments.length-1].to).tz):""} ${a.shabbat==="ok"?"✓":a.shabbat==="tight"?"⚠":"✕"}</span></div>`);} else if(l.date) lines.push(`<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span class="meta">${dayLabel(l.date)} · flight not chosen</span></div>`); });
-  if(trip.multi&&trip.multi.selected!=null){ const o=trip.multi.ai.options[trip.multi.selected]; const p=o&&o.priceUSD; lines.unshift(`<div class="it"><b>🎫 Ticket</b><span>${esc(o.ticketing||"Multi-city itinerary")}${p&&(p.low||p.high)?` · ~$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:""}</span></div>`); }
+  if(trip.multi&&trip.multi.selected!=null){ const o=trip.multi.ai.options[trip.multi.selected]; const p=normP(o&&o.priceUSD); lines.unshift(`<div class="it"><b>🎫 Ticket</b><span>${esc(o.ticketing||"Multi-city itinerary")}${p&&(p.low||p.high)?` · ~$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:""}</span></div>`); }
   (trip.stops||[]).filter(s=>s.need).forEach(s=>{ const i=s.key; const h=trip.hotels[i]; const sel=h&&h.selected!=null?h.results[h.selected]:null; lines.push(`<div class="it"><b>🏨 ${esc(s.code)}</b><span ${sel?"":'class="meta"'}>${sel?esc(sel.name):"hotel not chosen"}</span></div>`); });
   if(trip.seatAlert){ const a=trip.seatAlert; lines.push(`<div class="it"><b>🔔 Seat</b><span>Window/aisle alert on ${esc(a.flight)} ${esc(a.from||"")}→${esc(a.to||"")} ${a.date?dayLabel(a.date):""} <span class="meta">(ExpertFlyer email/SMS)</span> <button class="btn ghost small" data-act="clearseatalert">Remove</button></span></div>`); }
   tripWindows(trip).forEach(w=>lines.push(`<div class="it"><b>✡ ${esc(w.code)}</b><span>${esc(w.name)} ${fmtDT(w.start,w.loc.tz)} – ${fmtTime(w.end,w.loc.tz)}</span></div>`));
@@ -1050,7 +1093,8 @@ function summaryText(){
 function renderTrips(){
   const el=$("#tripList");
   const list=trips.slice().sort((a,b)=>tripStart(a).localeCompare(tripStart(b)));
-  el.innerHTML=list.length?list.map(t=>{ migrateTrip(t); const route=[t.flights[0]?.from,...t.flights.map(f=>f.to)].filter(Boolean).join(" → "); const sd=tripStart(t); return `<div class="trip"><div><b>${esc(t.name||route)}</b><small>${sd?dayLabel(sd):"no date"} · ${esc(route)}</small></div>
+  el.innerHTML=list.length?list.map(t=>{ migrateTrip(t); const route=[t.flights[0]?.from,...t.flights.map(f=>f.to)].filter(Boolean).join(" → "); const sd=tripStart(t); const nF=computeLegs(t).filter(l=>t.legs&&t.legs[l.key]&&t.legs[l.key].selected).length, nL=computeLegs(t).length; const nH=Object.values(t.hotels||{}).filter(h=>h&&h.selected!=null).length;
+    return `<div class="trip ${t.id===trip.id?"cur":""}"><div><b>${esc(t.name||route)}</b><small>${sd?dayLabel(sd)+(tripEnd(t)&&tripEnd(t)!==sd?" – "+dayLabel(tripEnd(t)):""):"no date"} · ${esc(route)}</small><small>✈ ${nF}/${nL} flights chosen · 🏨 ${nH} hotel${nH===1?"":"s"} chosen${t.auto&&Object.keys(t.auto).length?" · 🔔 alerts on":""}</small></div>
     <div style="display:flex;gap:6px"><button class="btn small" data-act="open" data-id="${t.id}">Open</button><button class="btn small ghost danger" data-act="del" data-id="${t.id}">Delete</button></div></div>`; }).join(""):`<div class="empty">No saved trips yet. Plan one and tap “Save trip”.</div>`;
   $("#storeNote").textContent= col?"Trips sync to your Claude account — they're available on your phone and PC.":(STANDALONE?"Trips are stored in this browser only — set up the cloud helper in Settings to sync phone ↔ PC.":"Trips are stored in this browser only (sign in to Claude to sync across devices).");
 }
@@ -1064,23 +1108,47 @@ function readSettings(){
 let _setT;
 function saveSettings(){ clearTimeout(_setT); _setT=setTimeout(async()=>{ try{ localStorage.setItem("btp.settings",JSON.stringify(S)); }catch{} if(col){ try{ await col.doc("settings").set({kind:"settings",settings:S}); }catch(e){} } },600); }
 let _saving=false;
-async function saveTrip(silent){
-  readForm(); trip.savedAt=Date.now();
-  for(const [k,v] of Object.entries(trip.legs)) if(!v.ai && !(v.manual&&v.manual.length) && !v.selected) delete trip.legs[k];
-  const copy=JSON.parse(JSON.stringify(trip));
-  const i=trips.findIndex(t=>t.id===trip.id); if(i>=0) trips[i]=copy; else trips.push(copy);
+function tripTitle(t){ migrateTrip(t); return t.name||[t.flights[0]?.from,...t.flights.map(f=>f.to)].filter(Boolean).join(" → ")||"New trip"; }
+function tripHasData(t){ migrateTrip(t); return !!(t.name||t.flights.some(f=>f.to||f.date)); }
+const _saveQ={};
+async function saveTripObj(t,silent){
+  t.savedAt=Date.now();
+  for(const [k,v] of Object.entries(t.legs||{})) if(!v.ai && !v.live && !(v.manual&&v.manual.length) && !v.selected) delete t.legs[k];
+  const copy=JSON.parse(JSON.stringify(t));
+  const i=trips.findIndex(x=>x.id===t.id); if(i>=0) trips[i]=copy; else trips.push(copy);
   try{ localStorage.setItem("btp.trips",JSON.stringify(trips)); }catch{}
-  if(col && !_saving){ _saving=true; try{ await col.doc(trip.id).set({kind:"trip",trip:copy,updated:Date.now()}); if(!silent) toast("Trip saved ✓"); }catch(e){ toast(e.code==="quota_exceeded"?"Storage full — delete old trips":"Saved on this device only"); } _saving=false; }
+  if(t===trip) dirty=false;
+  renderTripBar(); if(view==="trips") renderTrips();
+  if(col){ const prev=_saveQ[t.id]||Promise.resolve();
+    _saveQ[t.id]=prev.then(()=>col.doc(t.id).set({kind:"trip",trip:copy,updated:Date.now()})).then(()=>{ if(!silent) toast("Trip saved ✓"); },e=>{ toast(e&&e.code==="quota_exceeded"?"Storage full — delete old trips":"Saved on this device only"); });
+    await _saveQ[t.id]; }
   else if(!silent) toast("Trip saved on this device ✓");
-  dirty=false;
-  if(db&&watchDoc&&watchDoc.enabled){ try{ await db.doc("watch/"+trip.id).update(watchPayload()); }catch(e){} }
+  if(db){ try{ const r=db.doc("watch/"+t.id); const cur=await r.get(); if(cur.exists&&cur.data().enabled) await r.update(watchPayload(t)); }catch(e){} }
 }
-let _autoT; function autosave(){ if(trip.savedAt){ clearTimeout(_autoT); _autoT=setTimeout(()=>saveTrip(true),1200); } }
-async function deleteTrip(id,silent){ removeWatch(id); trips=trips.filter(t=>t.id!==id); try{ localStorage.setItem("btp.trips",JSON.stringify(trips)); }catch{} if(col){ try{ await col.doc(id).delete(); }catch{} } renderTrips(); if(!silent) toast("Trip deleted"); }
+async function saveTrip(silent){ readForm(); await saveTripObj(trip,silent); }
+let _autoT; function autosave(){ if(tripHasData(trip)){ clearTimeout(_autoT); _autoT=setTimeout(()=>saveTrip(true),800); } }
+async function deleteTrip(id,silent){ removeWatch(id); trips=trips.filter(t=>t.id!==id); try{ localStorage.setItem("btp.trips",JSON.stringify(trips)); }catch{} if(col){ try{ await col.doc(id).delete(); }catch{} } if(id===trip.id){ trip=newTrip(); renderForm(); renderPlan(); } renderTripBar(); renderTrips(); if(!silent) toast("Trip deleted"); }
 
 let _purged=false;
 function purgeExpired(){ if(_purged) return; _purged=true; const today=todayIL();
   trips.filter(t=>{ const e=tripEnd(t); return e && e<today; }).forEach(t=>deleteTrip(t.id,true)); }
+// ---------- multiple trips: switcher ----------
+function renderTripBar(){
+  const el=$("#tripBar"); if(!el) return; const today=todayIL();
+  const list=trips.filter(t=>t.id!==trip.id).concat([trip]).filter(t=>t.id===trip.id||!tripEnd(t)||tripEnd(t)>=today)
+    .sort((a,b)=>(tripStart(a)||"9999").localeCompare(tripStart(b)||"9999"));
+  el.innerHTML=list.map(t=>{ const sd=tripStart(t), ed=tripEnd(t); const on=t.id===trip.id;
+    return `<button class="tchip ${on?"on":""}" data-act="switch" data-id="${esc(t.id)}"><b>${esc(tripTitle(t))}</b><small>${sd?dayLabel(sd)+(ed&&ed!==sd?" – "+dayLabel(ed):""):"no dates yet"}</small></button>`; }).join("")+
+    `<button class="tchip add" data-act="new"><b>＋ New trip</b><small>plan another</small></button>`;
+}
+async function switchTrip(id){
+  readForm(); if(tripHasData(trip)) await saveTripObj(trip,true);
+  closeCal(); clearTimeout(autoTimer);
+  if(id==="__new"){ trip=newTrip(); }
+  else { const t=trips.find(x=>x.id===id); if(!t) return; trip=deriveTrip(JSON.parse(JSON.stringify(t))); }
+  dirty=false; onFormChange._sig=JSON.stringify(trip.flights); renderForm(); renderPlan(); renderTripBar(); show("plan"); scheduleAuto();
+}
+
 // ---------- navigation ----------
 function show(v){ view=v; ["plan","trips","settings"].forEach(x=>{ $("#view-"+x).classList.toggle("hidden",x!==v); document.querySelectorAll(`[data-tab="${x}"]`).forEach(b=>b.classList.toggle("on",x===v)); }); $("#savebar").classList.toggle("hidden",v!=="plan"); if(v==="trips") renderTrips(); if(v==="settings") renderSettings(); window.scrollTo(0,0); }
 
@@ -1115,8 +1183,9 @@ document.addEventListener("click",async e=>{
   if(act==="pickhotel"){ const h=trip.hotels[b.dataset.i]; const hi=+b.dataset.h; h.selected=h.selected===hi?null:hi; autosave(); renderHotels(); renderSummary(); }
   if(act==="brand"){ const x=b.dataset.b; S.brands=S.brands.includes(x)?S.brands.filter(y=>y!==x):[...S.brands,x]; if(!S.brands.length) S.brands=[x]; saveSettings(); b.classList.toggle("on",S.brands.includes(x)); }
   if(act==="save"){ await saveTrip(); }
-  if(act==="new"){ if(dirty && !b.dataset.confirm){ b.dataset.confirm="1"; b.textContent="Tap again to discard"; setTimeout(()=>{ b.textContent="New trip"; delete b.dataset.confirm; },2500); return; } trip=newTrip(); dirty=false; renderForm(); renderPlan(); show("plan"); toast("New trip"); b.textContent="New trip"; delete b.dataset.confirm; }
-  if(act==="open"){ const t=trips.find(x=>x.id===b.dataset.id); if(t){ trip=deriveTrip(JSON.parse(JSON.stringify(t))); dirty=false; onFormChange._sig=JSON.stringify(trip.flights); renderForm(); renderPlan(); show("plan"); } }
+  if(act==="switch"){ if(b.dataset.id!==trip.id) await switchTrip(b.dataset.id); }
+  if(act==="new"){ await switchTrip("__new"); toast("New trip — your other trips are saved"); }
+  if(act==="open"){ await switchTrip(b.dataset.id); }
   if(act==="del"){ if(!b.dataset.confirm){ b.dataset.confirm="1"; b.textContent="Confirm delete"; setTimeout(()=>{ b.textContent="Delete"; delete b.dataset.confirm; },2500); return; } await deleteTrip(b.dataset.id); }
   if(act==="watch"){ await toggleWatch(); }
   if(act==="seatalert"){ // the link itself opens ExpertFlyer; here we copy the flight details and remember which flight holds the 1 free alert
@@ -1197,12 +1266,12 @@ function kiwiErrorText(){ return kiwiState==="server_not_connected"||kiwiState==
 // ---------- trip watch (alerts run by a scheduled Claude task) ----------
 let watchUnsub=null, watchDoc=null, alertsMeta=null, metaSubbed=false;
 function metaSub(){ if(metaSubbed||!db) return; metaSubbed=true; try{ db.doc("meta/alerts").onSnapshot(s=>{ alertsMeta=s.exists?s.data():null; renderWatch(); },()=>{}); }catch(e){} }
-function watchPayload(){
-  const legs=computeLegs(trip).filter(l=>l.date&&apt(l.from)&&apt(l.to));
+function watchPayload(t){ t=t||trip;
+  const legs=computeLegs(t).filter(l=>l.date&&apt(l.from)&&apt(l.to));
   const codes=[...new Set(legs.flatMap(l=>[l.from,l.to]))];
   const wins=[]; codes.forEach(c=>{ const L=apt(c); holyWindows(L,addDays(legs[0].date,-1),addDays(legs[legs.length-1].date,2),S).forEach(w=>wins.push({code:c,name:w.name,startUtc:new Date(w.start).toISOString(),endUtc:new Date(w.end).toISOString(),startLocal:fmtDT(w.start,L.tz),endLocal:fmtDT(w.end,L.tz)})); });
   const tz={}; codes.forEach(c=>tz[c]=apt(c).tz);
-  return {tripId:trip.id,name:trip.name||[trip.flights[0]?.from,...trip.flights.map(f=>f.to)].filter(Boolean).join(" → "),enabled:true,
+  return {tripId:t.id,name:tripTitle(t),enabled:true,
     legs:legs.map(l=>({from:l.from,to:l.to,date:l.date})),prefAirlines:S.prefAirlines,includeLCC:!!S.includeLCC,cabin:S.cabin,
     cheaperByUSD:S.cheaperByUSD,bufBeforeHours:S.bufBefore,bufAfterHours:S.bufAfter,minConnHours:S.minConn,shabbatWindows:wins,airportTz:tz,updatedAt:new Date().toISOString()};
 }
@@ -1225,11 +1294,11 @@ function renderWatch(){
 function tripEnd(t){ migrateTrip(t); const ds=t.flights.map(f=>f.date).filter(Boolean).sort(); return ds[ds.length-1]||""; }
 function todayIL(){ const p=zoneParts(Date.now(),"Asia/Jerusalem"); return ymd(p.y,p.m,p.d); }
 // A trip is watched automatically once it has been queried; it stays until deleted or its dates pass.
-async function ensureWatch(){
+async function ensureWatch(t){ t=t||trip;
   if(STANDALONE||!db) return;
-  const legs=computeLegs(trip).filter(l=>l.date&&apt(l.from)&&apt(l.to)); if(!legs.length) return;
-  if(!trip.savedAt) await saveTrip(true);
-  try{ const ref=db.doc("watch/"+trip.id); const p=watchPayload(); if(watchDoc) await ref.update(p); else await ref.set(p); }catch(e){}
+  const legs=computeLegs(t).filter(l=>l.date&&apt(l.from)&&apt(l.to)); if(!legs.length) return;
+  if(!t.savedAt) await saveTripObj(t,true);
+  try{ const ref=db.doc("watch/"+t.id); const p=watchPayload(t); const cur=await ref.get(); if(cur.exists) await ref.update(p); else await ref.set(p); }catch(e){}
 }
 async function removeWatch(id){ if(!db) return; try{ await db.doc("watch/"+id).delete(); }catch(e){} }
 async function toggleWatch(){
@@ -1247,13 +1316,13 @@ function boot(){
   try{ trips=JSON.parse(localStorage.getItem("btp.trips")||"[]")||[]; }catch{ trips=[]; }
   syncExtra();
   $("#apts").innerHTML=Object.entries(AIRPORTS).map(([c,a])=>`<option value="${c} — ${esc(a[0])}">`).join("");
-  trip=newTrip(); renderForm(); renderPlan(); show("plan");
+  trip=newTrip(); renderForm(); renderPlan(); renderTripBar(); show("plan");
   initCaps();
 }
 async function initCaps(){
   if(!window.claude||typeof window.claude.use!=="function"){ STANDALONE=true; initStandalone(); return; }
   claude.use("mcp").then(m=>{ mcp=m; renderLegs(); }).catch(()=>{});
-  claude.use("sample").then(s=>{ sample=s; $("#aiNote").classList.toggle("hidden",!!s); renderLegs(); renderHotels(); }).catch(()=>$("#aiNote").classList.remove("hidden"));
+  claude.use("sample").then(s=>{ sample=s;  renderLegs(); renderHotels(); }).catch(()=>void 0);
   try{
     const [d,u]=await Promise.all([claude.use("db"),claude.use("user")]);
     if(d&&u){ uid=await u.id(); if(uid){ db=d; col=db.collection("data/users/"+uid); watchSub();
@@ -1266,7 +1335,7 @@ async function initCaps(){
         const remoteIds=new Set(remote.map(r=>r.id)); trips.filter(t=>!remoteIds.has(t.id)&&t.savedAt&&!t._pushed).forEach(t=>{ t._pushed=true; col.doc(t.id).set({kind:"trip",trip:t,updated:Date.now()}).catch(()=>{}); });
         trips=[...map.values()];
         purgeExpired();
-        if(view==="trips") renderTrips(); if(changed){ if(view==="settings") renderSettings(); }
+        renderTripBar(); if(view==="trips") renderTrips(); if(changed){ if(view==="settings") renderSettings(); }
       },err=>{ col=null; if(view==="trips") renderTrips(); });
     } }
   }catch(e){}
@@ -1274,11 +1343,11 @@ async function initCaps(){
 function initStandalone(){
   document.querySelectorAll(".standalone-only").forEach(e=>e.classList.remove("hidden"));
   const c=conn(); $("#cUrl").value=c.url||""; $("#cKey").value=c.key||"";
-  if(c.url&&c.key){ sample=workerSample(); col=workerCollection(); $("#aiNote").classList.add("hidden");
+  if(c.url&&c.key){ sample=workerSample(); col=workerCollection();
     col.onSnapshot(snap=>{ const remote=[]; snap.docs.forEach(d=>{ const v=d.data(); if(v&&v.kind==="trip"&&v.trip) remote.push(v.trip); if(v&&v.kind==="settings"&&v.settings){ S={...DEFAULT_SETTINGS,...v.settings}; syncExtra(); } });
       const map=new Map(trips.map(t=>[t.id,t])); remote.forEach(r=>{ const l=map.get(r.id); if(!l||(r.savedAt||0)>=(l.savedAt||0)) map.set(r.id,r); }); trips=[...map.values()]; purgeExpired(); if(view==="trips") renderTrips(); },
       err=>{ col=null; toast(String(err.message||err)); });
-  } else { purgeExpired(); $("#aiNote").textContent="AI hotel search and cross-device sync need the free cloud helper — see Settings → Cloud helper. Shabbat checks, flight checks and links work now."; $("#aiNote").classList.remove("hidden"); }
+  } else { purgeExpired(); }
   renderLegs(); renderHotels();
 }
 document.addEventListener("click",e=>{ if(e.target.id==="cSave"){ setConn({url:$("#cUrl").value.trim(),key:$("#cKey").value.trim()}); toast("Saved — reloading…"); setTimeout(()=>location.reload(),600); } });
