@@ -304,7 +304,9 @@ function sunAltTime(dateStr,lat,lon,alt,rising){
 
 // ---------- Hebrew calendar / Yom Tov ----------
 const _heb = new Intl.DateTimeFormat("en-u-ca-hebrew",{day:"numeric",month:"long",timeZone:"UTC"});
-function hebDate(dateStr){ const o={}; for(const p of _heb.formatToParts(new Date(dateStr+"T12:00:00Z"))) o[p.type]=p.value; return {d:+o.day, m:o.month}; }
+const _hebC=new Map();
+function hebDate(dateStr){ const c=_hebC.get(dateStr); if(c) return c; const r=_hebDate(dateStr); _hebC.set(dateStr,r); return r; }
+function _hebDate(dateStr){ const o={}; for(const p of _heb.formatToParts(new Date(dateStr+"T12:00:00Z"))) o[p.type]=p.value; return {d:+o.day, m:o.month}; }
 function yomTov(dateStr,israel){
   const {d,m}=hebDate(dateStr);
   if(m==="Tishri"){ if(d===1||d===2) return "Rosh Hashana"; if(d===10) return "Yom Kippur"; if(d===15||(!israel&&d===16)) return "Sukkot"; if(d===22) return israel?"Shemini Atzeret / Simchat Torah":"Shemini Atzeret"; if(!israel&&d===23) return "Simchat Torah"; }
@@ -362,7 +364,12 @@ function holyName(dateStr,israel){ const yt=yomTov(dateStr,israel); if(yt) retur
 
 // settings: {candleMin, havdalah:"8.5"|"72"|"50"}
 // returns windows [{start,end,name,startDay,endDay}] for location loc covering dates [fromDate,toDate]
+const _hwC=new Map();
 function holyWindows(loc,fromDate,toDate,settings){
+  const k=[loc.code,loc.lat,loc.lon,loc.country,loc.candleMin,fromDate,toDate,settings.candleMin,settings.havdalah,settings.chabadLocal].join("|");
+  let r=_hwC.get(k); if(!r){ if(_hwC.size>4000) _hwC.clear(); r=_holyWindows(loc,fromDate,toDate,settings); _hwC.set(k,r); } return r;
+}
+function _holyWindows(loc,fromDate,toDate,settings){
   const israel = loc.country==="IL"; const out=[];
   let d = addDays(fromDate,-1);
   const stop = addDays(toDate,2);
@@ -390,7 +397,12 @@ function holyWindows(loc,fromDate,toDate,settings){
 const LCC={W6:"Wizz Air",W4:"Wizz Air Malta",W9:"Wizz Air UK",FR:"Ryanair",RK:"Ryanair UK",U2:"easyJet",EC:"easyJet Europe",DS:"easyJet Switzerland","6H":"Israir",IZ:"Arkia",BZ:"Blue Bird",H6:"Air Haifa",FZ:"flydubai",G9:"Air Arabia","3O":"Air Arabia Maroc",PC:"Pegasus",XQ:"SunExpress",VY:"Vueling",HV:"Transavia",TO:"Transavia France",LS:"Jet2",EW:"Eurowings",DY:"Norwegian",D8:"Norwegian",FD:"Thai AirAsia",AK:"AirAsia",D7:"AirAsia X",XJ:"Thai AirAsia X",VJ:"VietJet",TR:"Scoot",SL:"Thai Lion Air",DD:"Nok Air","5J":"Cebu Pacific",JQ:"Jetstar","3K":"Jetstar Asia",IX:"Air India Express","6E":"IndiGo",SG:"SpiceJet",F3:"flyadeal",XY:"flynas",J9:"Jazeera",NK:"Spirit",F9:"Frontier",B6:"JetBlue",WS:"WestJet",HG:"HiSky",V7:"Volotea","0B":"Blue Air",BJ:"Nouvelair"};
 const isLCC=c=>!!LCC[(c||"").toUpperCase()];
 // option: {segments:[{carrier,flight,from,to,dep,arr}]}  dep/arr local "YYYY-MM-DDTHH:MM"
+const _anC=new WeakMap();
 function analyzeOption(opt,S){
+  const sig=[S.minConn,S.longConn,S.selfTransferMin,S.bufBefore,S.bufAfter,S.candleMin,S.havdalah,S.chabadLocal,(S.prefAirlines||[]).join(),JSON.stringify(opt.segments)].join("|");
+  const c=_anC.get(opt); if(c&&c.sig===sig) return c.res; const res=_analyzeOption(opt,S); _anC.set(opt,{sig,res}); return res;
+}
+function _analyzeOption(opt,S){
   const res={ok:true,errors:[],flags:[],shabbat:"ok",shabbatNotes:[],conns:[]};
   const segs=(opt.segments||[]).map(s=>({...s,from:(s.from||"").toUpperCase(),to:(s.to||"").toUpperCase()}));
   if(!segs.length){ res.ok=false; res.errors.push("No flight segments"); return res; }
@@ -600,26 +612,6 @@ function windowsText(codes,from,to){
   const lines=[]; for(const c of codes){ const L=apt(c); if(!L) continue; for(const w of holyWindows(L,from,to,S)) lines.push(`- ${w.name} in ${L.city}: ${fmtDT(w.start,L.tz)} to ${fmtDT(w.end,L.tz)} (local)`); }
   return lines.join("\n")||"- none in this period";
 }
-async function aiFlights(leg){
-  const A=apt(leg.from),B=apt(leg.to); const cons=legConstraints(leg);
-  const prompt=`You are an airline-schedule expert helping an Israel-based business traveler plan a trip.
-Find up to 8 realistic one-way itinerary options: ${leg.from} (${A.city}) → ${leg.to} (${B.city}), departing on ${leg.date} local time${leg.ret?" (return flight home)":""}. Overnight departures late on the previous evening are fine if they respect the constraints. Cabin: ${S.cabin}.
-Airline preference: the traveler prefers ${S.prefAirlines.join(" and ")} (LY = El Al, TG = Thai Airways). Include every plausible ${S.prefAirlines.join("/")} option first (nonstop or via their hubs/codeshares), then include the best other-airline options that are QUICKER or CHEAPER — shorter total travel time matters more to him than price (travel time = from take-off at the origin to landing at the final destination, layovers included).
-Connections: prefer at least ${S.minConn} hours; avoid very long layovers unless it's the only way.
-${S.includeLCC?`Also include LOW-COST / no-frills airlines (e.g. Wizz Air, Ryanair, easyJet, Israir, Arkia, Blue Bird, flydubai, Air Arabia, Pegasus, AirAsia, VietJet, Scoot, IndiGo) whenever they're cheaper, including self-transfer combinations on separate tickets (allow at least ${S.selfTransferMin}h for self-transfers). For every option give "extrasUSD": the estimated extra cost on top of the fare for ${BAGS[S.bags]} plus a seat (0 for full-service fares that include it).`:"Do NOT include low-cost / no-frills airlines."}
-HARD Shabbat / Jewish holiday constraint — no flight may depart, be in the air, or connect during these windows:
-${windowsText([leg.from,leg.to],addDays(leg.date,-1),addDays(leg.date,2))}
-Planning constraints: ${cons.map(c=>c.text).join("; ")||"none"}. Prefer landing at least ${S.bufBefore}h before Shabbat starts and departing at least ${S.bufAfter}h after it ends.
-Use real, regularly scheduled flight numbers and their typical timetable times as best you know them (local times at each airport). Give a realistic typical fare range in USD.
-Reply with ONLY JSON in exactly this shape:
-{"options":[{"segments":[{"carrier":"LY","flight":"LY81","from":"TLV","to":"BKK","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}],"priceUSD":{"low":0,"high":0},"extrasUSD":0,"notes":"short note e.g. frequency, aircraft, codeshare, what the fare includes"}],
-"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}},
-"caveat":"one sentence on schedule reliability"}
-Include in "airports" every airport code used in any segment.`;
-  const j=await askJSON(prompt,"complex");
-  absorbAirports(j.airports);
-  return {options:Array.isArray(j.options)?j.options:[],caveat:j.caveat||"",at:Date.now()};
-}
 async function aiParse(text,leg){
   const j=await askJSON(`Extract the flight segments from this itinerary text. The trip leg is around ${leg.date} from ${leg.from} to ${leg.to}. Reply ONLY JSON: {"segments":[{"carrier":"XX","flight":"XX123","from":"AAA","to":"BBB","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}],"priceUSD":{"low":0,"high":0},"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}}}. Times are local at each airport. Use priceUSD null if no price. Include every airport used in "airports".\n\nTEXT:\n${text}`,"default");
   absorbAirports(j.airports); return j;
@@ -650,8 +642,10 @@ async function realHotels(stop){
     {...base,coordinates:{latitude:A.lat,longitude:A.lon,radius:Math.min(200,R)},accommodation_types:["HOTEL"],result_count:50,user_query:`Hilton hotels near ${stop.code} airport`}
   ];
   const seen=new Map(); let ok=0, lastErr=null;
-  for(const input of calls){
-    try{ const r=await mcp.callTool(BOOKING_SERVER,BOOKING_TOOL,input); const list=(r.payload&&r.payload.accommodations)||[]; ok++;
+  const fetchOne=async input=>{ try{ const r=await mcp.callTool(BOOKING_SERVER,BOOKING_TOOL,input); ok++; return (r.payload&&r.payload.accommodations)||[]; }
+    catch(e){ if(AUTH_CODES.includes(e.code)) throw new Error("Connect Booking.com in Claude (Settings → Connectors) to list Hilton hotels here"); lastErr=e; return []; } };
+  const lists=[await fetchOne(calls[0]),...await Promise.all(calls.slice(1).map(fetchOne))];
+  for(const list of lists){
       for(const h of list){ const brand=hiltonBrand(h.name); const c=h.location&&h.location.coordinates; if(!brand||!c) continue;
         if(!S.brands.includes(brand)) continue;
         const km=kmBetween(A.lat,A.lon,c.latitude,c.longitude); if(km>R) continue;
@@ -659,99 +653,36 @@ async function realHotels(stop){
         const url=typeof h.url==="string"&&/^https:\/\//.test(h.url)?h.url:"";
         if(!seen.has(h.id)) seen.set(h.id,{name:h.name,brand,area:(h.location.district_name||h.location.city_name||""),address:h.location.address||"",distanceKm:Math.round(km),
           totalUSD:total,rateUSD:total&&nights?{low:Math.round(total/nights),high:Math.round(total/nights)}:null,stars:h.rating&&h.rating.stars,score:h.rating&&h.rating.review_score,reviews:h.rating&&h.rating.number_of_reviews,bookingUrl:url,source:"booking"}); } }
-    catch(e){ if(["server_not_connected","needs_reauth","not_in_manifest","blocked_by_policy","approval_required","selection_required"].includes(e.code)) throw new Error("Connect Booking.com in Claude (Settings → Connectors) to list Hilton hotels here"); lastErr=e; }
-  }
   if(!ok&&lastErr) throw lastErr;
-  const results=[...seen.values()].sort((a,b)=>a.distanceKm-b.distanceKm);
+  const results=[...seen.values()].sort((a,b)=>a.distanceKm-b.distanceKm).slice(0,20);
   return {results,at:Date.now(),radiusKm:R,live:true,tip:results.length?"":`No Hilton-family hotel with rooms for these dates within ${R} km of ${stop.code} airport.`};
 }
-async function aiHotels(stop){
-  const L=apt(stop.code); const nights=stayNights(stop)||null; const A=aptRaw(stop.code)||L;
-  const R=S.hotelRadiusKm||100; const center=`${cityOf(stop.code)} airport (${stop.code}, at ${A.lat.toFixed(3)}, ${A.lon.toFixed(3)})`;
-  const prompt=`Recommend up to 10 hotels for a business traveler within ${R} km of ${center} (${L.country}) — this includes nearby towns and suburbs, not only ${cityOf(stop.code)} itself. ONLY hotels from Hilton's portfolio, limited to these brands: ${S.brands.join(", ")}. Never include a hotel farther than ${R} km; "distanceKm" must be the straight-line distance from ${center}.
-Stay: check-in ${stop.checkin||"?"}, check-out ${stop.leave||"?"}${nights?` (${nights} nights)`:""}.
-Rank by business convenience (central business district and easy airport access), then quality. "distanceKm" = straight-line km from the airport; "commute" = typical taxi time from the airport.
-Only include hotels you are confident exist and operate under Hilton. Reply with ONLY JSON:
-{"hotels":[{"name":"full official hotel name","brand":"brand","area":"neighborhood","address":"street address","distanceKm":0,"commute":"e.g. 35 min taxi from airport","rateUSD":{"low":0,"high":0},"why":"one sentence"}],"tip":"one sentence about where to stay in this city"}`;
-  const j=await askJSON(prompt,"complex");
-  const list=(Array.isArray(j.hotels)?j.hotels:[]).filter(h=>h&&h.name&&(h.distanceKm==null||h.distanceKm===""||+h.distanceKm<=R)).sort((a,b)=>(+a.distanceKm||0)-(+b.distanceKm||0));
-  return {results:list,tip:j.tip||"",at:Date.now(),radiusKm:R};
-}
 
-async function aiMulti(legs){
-  const legLines=legs.map((l,i)=>{ const A=apt(l.from),B=apt(l.to); const cons=legConstraints(l).map(c=>c.text).join("; ");
-    return `Leg ${i+1}: ${l.from} (${A.city}) → ${l.to} (${B.city}) on ${l.date}${cons?` — constraints: ${cons}`:""}`; }).join("\n");
-  const codes=[...new Set(legs.flatMap(l=>[l.from,l.to]))];
-  const prompt=`You are an airline-schedule and fares expert helping an Israel-based business traveler book a MULTI-CITY trip as one ticket (or a smart combination of tickets).
-Legs (dates are local departure dates; overnight departures late the previous evening are fine if they respect the constraints):
-${legLines}
-Cabin: ${S.cabin}.
-Airline preference: prefers ${S.prefAirlines.join(" and ")} (LY = El Al, TG = Thai Airways). Put the best ${S.prefAirlines.join("/")} (incl. Star Alliance/codeshare partners operated by them) itineraries first, then other airlines only when QUICKER or CHEAPER overall (quicker matters more than cheaper; travel time = first take-off to final landing, layovers included). Consider single multi-city tickets, open-jaw, and combinations (e.g. one airline's multi-city + a separate regional one-way) and say which in the notes.
-Connections: prefer at least ${S.minConn} hours.
-${S.includeLCC?`Also include LOW-COST / no-frills airlines (e.g. Wizz Air, Ryanair, easyJet, Israir, Arkia, Blue Bird, flydubai, Air Arabia, Pegasus, AirAsia, VietJet, Scoot, IndiGo) whenever they're cheaper, including self-transfer combinations on separate tickets (allow at least ${S.selfTransferMin}h for self-transfers). For every option give "extrasUSD": the estimated extra cost on top of the fare for ${BAGS[S.bags]} plus a seat (0 for full-service fares that include it).`:"Do NOT include low-cost / no-frills airlines."}
-HARD Shabbat / Jewish holiday constraint — no flight may depart, be in the air, or connect during these windows:
-${windowsText(codes,addDays(legs[0].date,-1),addDays(legs[legs.length-1].date,2))}
-Prefer landing at least ${S.bufBefore}h before Shabbat and departing at least ${S.bufAfter}h after it ends.
-Use real, regularly scheduled flight numbers and typical timetable times (local). Give a realistic typical TOTAL fare range in USD for the whole itinerary.
-Propose up to 6 complete itineraries. Reply with ONLY JSON:
-{"options":[{"legs":[{"segments":[{"carrier":"LY","flight":"LY81","from":"TLV","to":"BKK","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}]}],"priceUSD":{"low":0,"high":0},"extrasUSD":0,"ticketing":"e.g. One multi-city ticket on TG","notes":"short"}],
-"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}},"caveat":"one sentence"}
-Each option's "legs" array must have exactly ${legs.length} entries in the order above. Include in "airports" every airport code used.`;
-  const j=await askJSON(prompt,"complex"); absorbAirports(j.airports);
-  return {options:Array.isArray(j.options)?j.options:[],caveat:j.caveat||"",at:Date.now(),sig:legs.map(l=>l.key).join("|")};
-}
 function multiLinks(legs){
   const q="Multi-city flights "+legs.map(l=>`${l.from} to ${l.to} on ${l.date}`).join(", then ")+` ${S.cabin}`;
   const k=legs.map(l=>`${l.from}-${l.to}/${l.date}`).join("/");
   return [["Google Flights (multi-city)",`https://www.google.com/travel/flights?q=${enc(q)}`],["Kayak multi-city (LY/TG)",`https://www.kayak.com/flights/${k}?fs=airlines=${S.prefAirlines.join(",")}&sort=bestflight_a`],["Kayak multi-city (all)",`https://www.kayak.com/flights/${k}?sort=bestflight_a`],["El Al","https://www.elal.com/en/"],["Thai Airways","https://www.thaiairways.com/"]];
 }
+function bestFor(leg){ // top-ranked Shabbat-safe live option for a leg
+  const st=trip.legs[leg.key]; if(!st||!st.live) return null; const all=st.live.options;
+  const r=rankOptions(S.includeLCC?all:all.filter(o=>!analyzeOption(o,S).lcc),S); const x=r.pref[0]||r.highlighted[0]||r.hidden[0]; return x?{x,idx:all.indexOf(x.o)}:null;
+}
 function multiCard(legs){
   if(legs.length<2 || legs.some(l=>!l.date||!apt(l.from)||!apt(l.to))) return "";
-  const sig=legs.map(l=>l.key).join("|"); const m=trip.multi&&trip.multi.sig===sig?trip.multi:null; const b=busy.multi;
   const route=[legs[0].from,...legs.map(l=>l.to)].join(" → ");
-  let res="";
-  if(false&&m&&m.ai){
-    const all=m.ai.options; const r=rankOptions(all,S,(o,S)=>analyzeMulti(o,S,legs)); const idx=x=>all.indexOf(x.o);
-    res+=m.ai.caveat?`<div class="note" style="margin-top:10px">ℹ ${esc(m.ai.caveat)}</div>`:"";
-    if(!r.pref.length&&!r.highlighted.length) res+=`<div class="empty">No valid multi-city itineraries — try the links or plan legs individually below.</div>`;
-    if(r.pref.length) res+=`<h3>★ ${esc(S.prefAirlines.join(" / "))} itineraries</h3>`+r.pref.map(x=>multiOpt(x,legs,m,idx(x))).join("");
-    if(r.highlighted.length) res+=`<h3>Other airlines — quicker or cheaper</h3>`+r.highlighted.map(x=>multiOpt(x,legs,m,idx(x))).join("");
-    if(r.hidden.length) res+=`<details class="group"><summary>${r.hidden.length} other itinerar${r.hidden.length>1?"ies":"y"}</summary>${r.hidden.map(x=>multiOpt(x,legs,m,idx(x))).join("")}</details>`;
-    if(r.conflicts.length) res+=`<details class="group"><summary>${r.conflicts.length} excluded (Shabbat conflict or invalid)</summary>${r.conflicts.map(x=>multiOpt(x,legs,m,idx(x))).join("")}</details>`;
-  }
+  const best=legs.map(l=>({l,b:bestFor(l)})); const have=best.filter(x=>x.b).length;
+  let total=0, hours=0; best.forEach(({b})=>{ if(b){ const p=normP(b.x.o.priceUSD); total+=p?(p.low||p.high||0):0; hours+=b.x.a.totalH||0; } });
+  const rows=best.map(({l,b})=>{ if(!b) return `<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span class="meta">${dayLabel(l.date)} · ${busy[l.key]?"searching…":"no Shabbat-safe live option yet"}</span></div>`;
+    const o=b.x.o,a=b.x.a,p=normP(o.priceUSD); const sel=trip.legs[l.key]&&trip.legs[l.key].selected&&JSON.stringify(trip.legs[l.key].selected.segments)===JSON.stringify(o.segments);
+    return `<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span>${esc(o.segments.map(s=>s.flight).join(" + "))} · ${fmtDT(a.depU,apt(o.segments[0].from).tz)} → ${fmtDT(a.arrU,apt(o.segments[o.segments.length-1].to).tz)} · ${fmtH(a.totalH)}${p?` · $${Math.round(p.low||p.high).toLocaleString()}`:""} ${sel?"✓":""}</span></div>`; }).join("");
   return `<div class="card leg multi">
-    <div class="leghead"><div class="route">Whole trip · ${legs.length>2?"multi-city":"round trip"} <span>${esc(route)}</span></div><span class="pill">${legs.length} flights · one search</span></div>
-    
-    <div class="note" style="margin-top:6px">Each flight below is searched live on Kiwi.com as soon as the trip is filled in. To price the whole route as one ticket, compare on:</div>
-    ${m&&m.ai&&m.ai.live?`<div class="note" style="margin-top:8px">⚡ Live from Kiwi.com · ${fmtAgo(m.ai.at)}</div>`:""}
-    ${!mcp?noSearchNote():""}
-    <div class="links">${multiLinks(legs).map(([n,u])=>`<a class="btn small" target="_blank" rel="noopener" href="${u}">${esc(n)} ↗</a>`).join("")}</div>
-    ${res}</div>`;
-}
-function multiOpt(x,legs,m,idx){
-  const a=x.a,o=x.o; const sel=m.selected===idx;
-  const p=normP(o.priceUSD); const price=p&&(p.low||p.high)?`$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:"";
-  const tags=[];
-  if(a.preferred==="all") tags.push(`<span class="pill gold">★ Preferred airline</span>`); else if(a.preferred==="some") tags.push(`<span class="pill gold">☆ Partly ${S.prefAirlines.join("/")}</span>`);
-  tags.push(...lccTags(a,o));
-  tags.push(a.shabbat==="ok"?`<span class="pill ok">✓ All legs Shabbat-safe</span>`:a.shabbat==="tight"?`<span class="pill warn">⚠ Tight to Shabbat</span>`:`<span class="pill bad">✕ Shabbat conflict</span>`);
-  (a.flags||[]).forEach(f=>tags.push(`<span class="pill ${f.t==="bad"?"bad":f.t==="warn"?"warn":"gray"}">${esc(f.m)}</span>`));
-  (x.why||[]).forEach(w=>tags.push(`<span class="pill ok">${esc(w)}</span>`));
-  (a.errors||[]).forEach(e=>tags.push(`<span class="pill bad">${esc(e)}</span>`));
-  const legHtml=(o.legs||[]).map((l,i)=>{ const pa=a.parts[i]||{}; const segs=pa.segs||l.segments||[];
-    const line=segs.map(s=>{ const A=apt(s.from),B=apt(s.to); return `<li><span class="fn">${esc(s.flight||"")}</span><span>${esc(s.from)} ${A&&s.depU?fmtDT(s.depU,A.tz):esc(s.dep)} → ${esc(s.to)} ${B&&s.arrU?fmtDT(s.arrU,B.tz):esc(s.arr)}</span></li>`; }).join("");
-    const st=pa.shabbat==="ok"?"✓":pa.shabbat==="tight"?"⚠":"✕";
-    const lg=legs[i]||{from:segs[0]?.from,to:segs[segs.length-1]?.to,date:(segs[0]?.dep||"").slice(0,10)};
-    return `<div class="meta" style="margin-top:8px;font-weight:600">Leg ${i+1} · ${esc(segs[0]?.from||"")} → ${esc(segs[segs.length-1]?.to||"")} ${pa.totalH?"· "+fmtH(pa.totalH):""} ${st}</div><ul class="segs">${line}</ul>${toolLinks({segments:segs},lg)}`; }).join("");
-  const fl=(o.legs||[]).flatMap(l=>(l.segments||[]).map(s=>s.flight)).filter(Boolean).join(" ");
-  return `<div class="opt ${sel?"sel":""}">
-    <div class="ohead"><div><div class="title">${esc((a.carriers||[]).join(" + "))} · ${fmtH(a.totalH||0)} total travel time</div><div class="meta">${esc(o.ticketing||"")}</div></div><div class="price">${price||"—"}<small>${price?(o.source==="kiwi"?"live total":"typical total"):""}</small></div></div>
-    ${legHtml}
-    <div class="tags">${tags.join("")}</div>
-    ${a.shabbatNotes?.length?`<div class="note">${a.shabbatNotes.map(esc).join("<br>")}</div>`:""}
-    ${o.notes?`<div class="note">${esc(o.notes)}</div>`:""}
-    <div class="btns" style="margin-top:8px">${o.bookingUrl?`<a class="btn small ghost" target="_blank" rel="noopener" href="${esc(o.bookingUrl)}">Book on Kiwi.com ↗</a>`:""}<button class="btn small ${sel?"primary":""}" data-act="pickmulti" data-idx="${idx}">${sel?"✓ Selected for all legs":"Select whole itinerary"}</button>
-    <a class="btn small ghost" target="_blank" rel="noopener" href="https://www.google.com/travel/flights?q=${enc("Multi-city flights "+legs.map(l=>`${l.from} to ${l.to} on ${l.date}`).join(", ")+" "+fl)}">Check fares ↗</a></div></div>`;
+    <div class="leghead"><div class="route">Whole trip · ${legs.length>2?"multi-city":"round trip"} <span>${esc(route)}</span></div><span class="pill">${legs.length} flights</span></div>
+    ${have?`<h3>Best live option per flight</h3><div class="summary">${rows}</div>
+      <div class="note" style="margin-top:6px">${have===legs.length?`Total ≈ <b>$${Math.round(total).toLocaleString()}</b> · ${fmtH(hours)} total travel time (separate tickets)`:`${have}/${legs.length} flights found so far`}</div>
+      <div class="btns"><button class="btn primary small" data-act="pickbest">Select these ${have} flight${have>1?"s":""}</button></div>`
+      :(!mcp?noSearchNote():`<div class="note" style="margin-top:6px">Each flight is searched live on Kiwi.com as soon as the trip is filled in.</div>`)}
+    <div class="note" style="margin-top:8px">One multi-city ticket can be cheaper than separate flights — compare on:</div>
+    <div class="links">${multiLinks(legs).map(([n,u])=>`<a class="btn small" target="_blank" rel="noopener" href="${u}">${esc(n)} ↗</a>`).join("")}</div></div>`;
 }
 
 function gettUrl(code){ const a=apt(code); return a&&a.country==="IL"?"https://gett.com/il/":"https://gett.com/"; }
@@ -1027,16 +958,6 @@ function renderLegs(){
     const dow=weekday(leg.date);
     const consHtml=cons.map(c=>`<span class="pill ${c.kind==="before"?"bad":"warn"}" title="${esc(c.detail||"")}">${esc(c.text)}</span>`).join("") || `<span class="pill ok">No Shabbat constraints on this date</span>`;
     let results="";
-    if(false&&st.ai){
-      const all=st.ai.options; const r=rankOptions(S.includeLCC?all:all.filter(o=>!analyzeOption(o,S).lcc),S);
-      const tag=x=>all.indexOf(x.o);
-      results+=st.ai.caveat?`<div class="note" style="margin-top:10px">ℹ ${esc(st.ai.caveat)}</div>`:"";
-      if(!r.pref.length && !r.highlighted.length) results+=`<div class="empty">No valid options found. Try the search links, or enter a flight below.</div>`;
-      if(r.pref.length) results+=`<h3>★ ${esc(S.prefAirlines.join(" / "))} options</h3>`+r.pref.map(x=>optCard(x,leg,st,tag(x),"ai")).join("");
-      if(r.highlighted.length) results+=`<h3>Other airlines — quicker or cheaper</h3>`+r.highlighted.map(x=>optCard(x,leg,st,tag(x),"ai")).join("");
-      if(r.hidden.length) results+=`<details class="group"><summary>${r.hidden.length} other option${r.hidden.length>1?"s":""} (not quicker or cheaper)</summary>${r.hidden.map(x=>optCard(x,leg,st,tag(x),"ai")).join("")}</details>`;
-      if(r.conflicts.length) results+=`<details class="group"><summary>${r.conflicts.length} option${r.conflicts.length>1?"s":""} excluded (Shabbat conflict or invalid)</summary>${r.conflicts.map(x=>optCard(x,leg,st,tag(x),"ai")).join("")}</details>`;
-    }
     if(st.live){ const all=st.live.options; const r=rankOptions(S.includeLCC?all:all.filter(o=>!analyzeOption(o,S).lcc),S); const tag=x=>all.indexOf(x.o);
       results+=`<h3>⚡ Live from Kiwi.com <span class="meta" style="font-weight:500">· ${fmtAgo(st.live.at)}</span></h3>`;
       if(!r.pref.length&&!r.highlighted.length&&!r.hidden.length) results+=`<div class="empty">No Shabbat-safe live results for this date.</div>`;
@@ -1122,7 +1043,6 @@ function renderHotels(){
 function renderSummary(){
   const legs=computeLegs(trip); const lines=[];
   legs.forEach(l=>{ const st=trip.legs[l.key]; const o=st?.selected; if(o){ const a=analyzeOption(o,S); lines.push(`<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span>${esc((o.segments||[]).map(s=>s.flight).join(" + "))} · ${a.depU?fmtDT(a.depU,apt(o.segments[0].from).tz):""} → ${a.arrU?fmtDT(a.arrU,apt(o.segments[o.segments.length-1].to).tz):""} ${a.shabbat==="ok"?"✓":a.shabbat==="tight"?"⚠":"✕"}</span></div>`);} else if(l.date) lines.push(`<div class="it"><b>${esc(l.from)}→${esc(l.to)}</b><span class="meta">${dayLabel(l.date)} · flight not chosen</span></div>`); });
-  if(trip.multi&&trip.multi.selected!=null){ const o=trip.multi.ai.options[trip.multi.selected]; const p=normP(o&&o.priceUSD); lines.unshift(`<div class="it"><b>🎫 Ticket</b><span>${esc(o.ticketing||"Multi-city itinerary")}${p&&(p.low||p.high)?` · ~$${Math.round(p.low||p.high).toLocaleString()}${p.high&&p.low&&p.high!==p.low?"–"+Math.round(p.high).toLocaleString():""}`:""}</span></div>`); }
   (trip.stops||[]).filter(s=>s.need).forEach(s=>{ const i=s.key; const h=trip.hotels[i]; const sel=h&&h.selected!=null?h.results[h.selected]:null; lines.push(`<div class="it"><b>🏨 ${esc(s.code)}</b><span ${sel?"":'class="meta"'}>${sel?esc(sel.name):"hotel not chosen"}</span></div>`); });
   if(trip.seatAlert){ const a=trip.seatAlert; lines.push(`<div class="it"><b>🔔 Seat</b><span>Window/aisle alert on ${esc(a.flight)} ${esc(a.from||"")}→${esc(a.to||"")} ${a.date?dayLabel(a.date):""} <span class="meta">(ExpertFlyer email/SMS)</span> <button class="btn ghost small" data-act="clearseatalert">Remove</button></span></div>`); }
   tripWindows(trip).forEach(w=>lines.push(`<div class="it"><b>✡ ${esc(w.code)}</b><span>${esc(w.name)} ${fmtDT(w.start,w.loc.tz)} – ${fmtTime(w.end,w.loc.tz)}</span></div>`));
@@ -1208,7 +1128,6 @@ document.addEventListener("click",async e=>{
   if(act==="addflight"){ readForm(); const last=trip.flights[trip.flights.length-1]; trip.flights.push({from:last?.to||"",to:"",date:""}); deriveTrip(trip); renderForm(); renderPlan(); }
   if(act==="addreturn"){ readForm(); const last=trip.flights[trip.flights.length-1]; trip.flights.push({from:last?.to||"",to:trip.flights[0]?.from||S.home,date:""}); deriveTrip(trip); renderForm(); renderPlan(); }
   if(act==="rmflight"){ readForm(); trip.flights.splice(+b.dataset.i,1); deriveTrip(trip); renderForm(); renderPlan(); scheduleAuto(); }
-  if(act==="aiflights"&&leg){ busy[key]="ai"; renderLegs(); try{ const r=await aiFlights(leg); legState(key).ai=r; autosave(); ensureWatch(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":err.code==="not_granted"?"AI access was not granted":"Search failed: "+(err.message||err)); } busy[key]=null; renderLegs(); renderSummary(); }
   if(act==="togglemanual"){ const m=document.getElementById("man-"+key); m.classList.toggle("hidden"); if(!draftSegs[key]){ draftSegs[key]=[{flight:"",from:leg.from,to:leg.to,dep:leg.date+"T",arr:""}]; draftSegs[key][0].dep=""; } renderSegEditor(leg); }
   if(act==="addseg"){ readSegEditor(key); const segs=draftSegs[key]||(draftSegs[key]=[]); const prev=segs[segs.length-1]; segs.push({flight:"",from:prev?.to||leg.from,to:leg.to,dep:"",arr:""}); renderSegEditor(leg); }
   if(act==="rmseg"){ readSegEditor(key); draftSegs[key].splice(+b.dataset.i,1); renderSegEditor(leg); }
@@ -1218,14 +1137,9 @@ document.addEventListener("click",async e=>{
     const pr=+draftSegs[key+"#price"]; const o={segments:segs.map(s=>({...s})),priceUSD:pr?{low:pr,high:pr}:null,notes:"Entered manually"};
     const st=legState(key); (st.manual||(st.manual=[])).push(o); delete draftSegs[key]; delete draftSegs[key+"#price"]; autosave(); renderLegs(); renderSummary();
     const a=analyzeOption(o,S); toast(a.shabbat==="ok"?"✓ Shabbat-safe":a.shabbat==="tight"?"⚠ Tight to Shabbat":"✕ Conflicts with Shabbat"); }
-  if(act==="pick"){ const st=legState(key); const o=b.dataset.src==="manual"?st.manual[+b.dataset.idx]:b.dataset.src==="live"?st.live.options[+b.dataset.idx]:st.ai.options[+b.dataset.idx]; st.selected= (st.selected&&JSON.stringify(st.selected.segments)===JSON.stringify(o.segments))?null:o; if(trip.multi) trip.multi.selected=null; deriveTrip(trip); autosave(); renderLegs(); renderHotels(); renderSummary(); }
+  if(act==="pick"){ const st=legState(key); const o=b.dataset.src==="manual"?st.manual[+b.dataset.idx]:b.dataset.src==="live"?st.live.options[+b.dataset.idx]:st.ai.options[+b.dataset.idx]; st.selected= (st.selected&&JSON.stringify(st.selected.segments)===JSON.stringify(o.segments))?null:o; deriveTrip(trip); autosave(); renderLegs(); renderHotels(); renderSummary(); }
   if(act==="live"&&leg){ busy[key]="live"; renderLegs(); try{ legState(key).live=await kiwiSearchDirect(leg); autosave(); ensureWatch(); }catch(err){ toast(String(err.message||"").startsWith("KIWI_")?kiwiErrorText():err.code==="rate_limited"?"AI is busy — try again in a minute":"Live search failed: "+(err.message||err)); } busy[key]=null; renderLegs(); renderSummary(); }
-  if(act==="livemulti"){ const legs=computeLegs(trip); busy.multi="live"; renderLegs(); try{ const ai=await aiLive(legs,true); trip.multi={ai,sig:ai.sig,selected:null}; autosave(); ensureWatch(); }catch(err){ toast(String(err.message||"").startsWith("KIWI_")?kiwiErrorText():"Live search failed: "+(err.message||err)); } busy.multi=false; renderLegs(); renderSummary(); }
-  if(act==="aimulti"){ const legs=computeLegs(trip); busy.multi=true; renderLegs(); try{ const ai=await aiMulti(legs); trip.multi={ai,sig:ai.sig,selected:null}; autosave(); ensureWatch(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":"Search failed: "+(err.message||err)); } busy.multi=false; renderLegs(); renderSummary(); }
-  if(act==="pickmulti"){ const legs=computeLegs(trip); const m=trip.multi; const i=+b.dataset.idx; const o=m.ai.options[i];
-    if(m.selected===i){ m.selected=null; legs.forEach(l=>{ const st=legState(l.key); if(st.selected&&st.selected.multi) st.selected=null; }); }
-    else { m.selected=i; legs.forEach((l,k)=>{ const lg=o.legs[k]; if(lg) legState(l.key).selected={segments:lg.segments,priceUSD:null,notes:"Part of multi-city itinerary",multi:true}; }); }
-    autosave(); renderLegs(); renderSummary(); }
+  if(act==="pickbest"){ computeLegs(trip).forEach(l=>{ const b=bestFor(l); if(b) legState(l.key).selected=b.x.o; }); deriveTrip(trip); autosave(); renderLegs(); renderHotels(); renderSummary(); toast("Best flights selected"); }
   if(act==="aihotels"){ const i=b.dataset.i; const stay=(trip.stops||[]).find(s=>s.key===i); if(!stay) return; busy["h"+i]=true; renderHotels(); try{ trip.hotels[i]=await realHotels(stay); autosave(); }catch(err){ toast(err.code==="rate_limited"?"AI is busy — try again in a minute":"Search failed: "+(err.message||err)); } busy["h"+i]=false; renderHotels(); renderSummary(); }
   if(act==="pickhotel"){ const h=trip.hotels[b.dataset.i]; const hi=+b.dataset.h; h.selected=h.selected===hi?null:hi; autosave(); renderHotels(); renderSummary(); }
   if(act==="brand"){ const x=b.dataset.b; S.brands=S.brands.includes(x)?S.brands.filter(y=>y!==x):[...S.brands,x]; if(!S.brands.length) S.brands=[x]; saveSettings(); b.classList.toggle("on",S.brands.includes(x)); }
@@ -1270,45 +1184,10 @@ function workerCollection(){
   };
 }
 function noSearchNote(){ return `<div class="banner info" style="margin:10px 0 0">Live flight lists appear in the planner's web address on claude.ai (<b>claude.ai/artifact/RBbubNn86yixxZpiv7NbrK</b> — opens in any browser when you're signed in to Claude). This copy has no free live flight source, so only the search links below work here.</div>`; }
-function claudeLink(prompt){ return "https://claude.ai/new?q="+enc(prompt); }
-function liveSearchPrompt(legs){
-  return `Use the Kiwi.com connector to search live flights for this trip and show a table (route, airline, flight numbers, departure/arrival local times, stops, duration, price, booking link):\n`+
-   legs.map((l,i)=>`${i+1}. ${l.from} → ${l.to} on ${l.date}`).join("\n")+
-   `\nCabin: ${S.cabin}. Prefer ${S.prefAirlines.join("/")} (El Al / Thai), but also show low-cost or other airlines if quicker or cheaper. I keep Shabbat: exclude any flight departing, flying or connecting between Friday candle-lighting and Saturday nightfall (Chabad.org times) at the airports involved, and flag flights landing less than ${S.bufBefore}h before Shabbat.`;
-}
 
 // ---------- Kiwi.com live search (Claude version, via the viewer's connector) ----------
 const KIWI_SERVER="Kiwi.com", KIWI_TOOL="search-flight";
-const KIWI_FALLBACK_SCHEMA={type:"object",description:"Kiwi.com search-flight arguments. Likely fields: flyFrom (IATA or city), flyTo, departureDate (dd/mm/yyyy), departureDateFlexRange (0-3), returnDate, returnDateFlexRange, passengers {adults,children,infants}, cabinClass (M economy, W premium, C business, F first), curr (e.g. USD), locale, sort. If the call errors, read the error and retry with corrected fields.",additionalProperties:true};
-async function kiwiTool(){
-  let schema=KIWI_FALLBACK_SCHEMA;
-  try{ const d=await mcp.describeTool(KIWI_SERVER,KIWI_TOOL); if(d&&d.inputSchema) schema=d.inputSchema; }catch(e){}
-  return {name:"kiwi_search_flight",description:"Search live Kiwi.com flights (one call per leg/date). Returns Kiwi.com results with prices and booking links.",inputSchema:schema,
-    execute:async(input)=>{ try{ const r=await mcp.callTool(KIWI_SERVER,KIWI_TOOL,input); const p=r.payload!==undefined?r.payload:r.content; const t=typeof p==="string"?p:JSON.stringify(p); return t.length>60000?t.slice(0,60000):t; }
-      catch(e){ if(["server_not_connected","needs_reauth","not_in_manifest","blocked_by_policy","approval_required","selection_required"].includes(e.code)){ kiwiState=e.code; throw new Error("KIWI_"+e.code); } return "ERROR "+(e.code||"")+": "+(e.message||e); } }};
-}
-async function aiLive(legs,multi){
-  const tool=await kiwiTool();
-  const codes=[...new Set(legs.flatMap(l=>[l.from,l.to]))];
-  const legLines=legs.map((l,i)=>`Leg ${i+1}: ${l.from} → ${l.to}, departing ${l.date} (also try the evening before if useful)`).join("\n");
-  const shape=multi
-    ? `{"options":[{"legs":[{"segments":[{"carrier":"LY","flight":"LY81","from":"TLV","to":"BKK","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}]}],"priceUSD":{"low":0,"high":0},"extrasUSD":0,"ticketing":"e.g. separate Kiwi.com bookings per leg","bookingUrl":"https://...","notes":"short"}],"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}},"caveat":"one sentence"}  — each option's "legs" must have exactly ${legs.length} entries in order.`
-    : `{"options":[{"segments":[{"carrier":"LY","flight":"LY81","from":"TLV","to":"BKK","dep":"YYYY-MM-DDTHH:MM","arr":"YYYY-MM-DDTHH:MM"}],"priceUSD":{"low":0,"high":0},"extrasUSD":0,"bookingUrl":"https://...","notes":"short"}],"airports":{"CODE":{"city":"","country":"ISO2","lat":0,"lon":0,"tz":"IANA tz"}},"caveat":"one sentence"}`;
-  const prompt=`You are helping an Israel-based business traveler. Use the kiwi_search_flight tool to get LIVE Kiwi.com results. For EACH leg call it twice: once with select_airlines="${S.prefAirlines.join(",")}" (Kiwi's default results often omit El Al/Thai nonstops) and once without an airline filter${S.includeLCC?"":` but with exclude_airlines of low-cost carriers`}; use currency "USD", dates as dd/mm/yyyy, cabinClass ${({"Economy":"M","Premium Economy":"W","Business":"C"})[S.cabin]||"M"}, and departureDateFlexDays 1 if the exact date returns little. Then pick up to 8 of the best ${multi?"complete itineraries (one result per leg, combined)":"options"}.
-${legLines}
-Cabin: ${S.cabin}. 1 adult. Currency USD.
-Prefer ${S.prefAirlines.join("/")} (El Al / Thai) whenever Kiwi returns them; also keep the best other or low-cost options that are quicker or cheaper — total travel time (first take-off at the origin to final landing, layovers included) matters more than price, so favour the fastest itineraries. ${S.includeLCC?"Low-cost airlines are welcome.":"Exclude low-cost airlines."}
-HARD Shabbat constraint — discard anything departing, flying or connecting during:
-${windowsText(codes,addDays(legs[0].date,-1),addDays(legs[legs.length-1].date,2))}
-Use ONLY flights, times, prices and links that appear in the tool results — never invent any. Copy each result's Kiwi booking link into "bookingUrl" (must start with https://). Times are local at each airport.
-Reply with ONLY JSON in this shape:
-${shape}
-Include in "airports" every airport code used.`;
-  const r=await sample(prompt,{modelTier:"default",tools:[tool]});
-  const j=parseJSON(r.text); absorbAirports(j.airports);
-  const opts=(Array.isArray(j.options)?j.options:[]).map(o=>({...o,source:"kiwi",bookingUrl:(typeof o.bookingUrl==="string"&&o.bookingUrl.startsWith("https://"))?o.bookingUrl:""}));
-  return {options:opts,caveat:j.caveat||"Live results from Kiwi.com — prices can change until booked.",at:Date.now(),live:true,sig:legs.map(l=>l.key).join("|")};
-}
+const AUTH_CODES=["server_not_connected","needs_reauth","not_in_manifest","blocked_by_policy","approval_required","selection_required"];
 // Direct Kiwi.com search: real results only, parsed in code (no AI in between)
 function ddmmyyyy(d){ const [y,m,dd]=d.split("-"); return `${dd}/${m}/${y}`; }
 function kiwiToOption(it){
@@ -1324,19 +1203,19 @@ async function kiwiSearchDirect(leg){
   const base={flyFrom:leg.from,flyTo:leg.to,departureDate:ddmmyyyy(leg.date),currency:"USD",cabinClass:({"Economy":"M","Premium Economy":"W","Business":"C"})[S.cabin]||"M",adults:1};
   const calls=[{...base,select_airlines:S.prefAirlines.join(","),sort:"duration"},{...base,sort:"duration",...ex},{...base,sort:"price",...ex}];
   const seen=new Set(), opts=[]; let lastErr=null, ok=0;
-  for(const input of calls){
-    try{ const r=await mcp.callTool(KIWI_SERVER,KIWI_TOOL,input); const p=r.payload; const its=(p&&p.itineraries)||[]; ok++;
-      its.forEach(it=>{ const o=kiwiToOption(it); const k=o.segments.map(g=>g.flight+g.dep).join("+"); if(o.segments.length&&!seen.has(k)){ seen.add(k); opts.push(o); } }); }
-    catch(e){ if(["server_not_connected","needs_reauth","not_in_manifest","blocked_by_policy","approval_required","selection_required"].includes(e.code)){ kiwiState=e.code; throw new Error("KIWI_"+e.code); } lastErr=e; }
-  }
+  // first call alone (it may need the viewer's one-time consent), then the rest in parallel
+  const run=async input=>{ try{ const r=await mcp.callTool(KIWI_SERVER,KIWI_TOOL,input); ok++; return (r.payload&&r.payload.itineraries)||[]; }
+    catch(e){ if(AUTH_CODES.includes(e.code)){ kiwiState=e.code; throw new Error("KIWI_"+e.code); } lastErr=e; return []; } };
+  const first=await run(calls[0]); const rest=await Promise.all(calls.slice(1).map(run));
+  [first,...rest].forEach(its=>its.forEach(it=>{ const o=kiwiToOption(it); const k=o.segments.map(g=>g.flight+g.dep).join("+"); if(o.segments.length&&!seen.has(k)){ seen.add(k); opts.push(o); } }));
   if(!ok&&lastErr) throw lastErr;
+  kiwiState="ok"; opts.splice(40);
   return {options:opts,caveat:"Live Kiwi.com results — prices can change until booked.",at:Date.now(),live:true};
 }
 function kiwiErrorText(){ return kiwiState==="server_not_connected"||kiwiState==="selection_required"?"Add the Kiwi.com connector in Claude (Settings → Connectors) to use live search.":kiwiState==="needs_reauth"?"Reconnect Kiwi.com in Claude Settings → Connectors.":kiwiState==="not_in_manifest"?"Kiwi.com access was declined for this page — allow it to use live search.":kiwiState==="blocked_by_policy"?"Your organization blocks the Kiwi.com connector.":"Live search unavailable right now."; }
 
 // ---------- trip watch (alerts run by a scheduled Claude task) ----------
-let watchUnsub=null, watchDoc=null, alertsMeta=null, metaSubbed=false;
-function metaSub(){ if(metaSubbed||!db) return; metaSubbed=true; try{ db.doc("meta/alerts").onSnapshot(s=>{ alertsMeta=s.exists?s.data():null; renderWatch(); },()=>{}); }catch(e){} }
+let watchUnsub=null, watchDoc=null;
 function watchPayload(t){ t=t||trip;
   const legs=computeLegs(t).filter(l=>l.date&&apt(l.from)&&apt(l.to));
   const codes=[...new Set(legs.flatMap(l=>[l.from,l.to]))];
@@ -1346,7 +1225,7 @@ function watchPayload(t){ t=t||trip;
     legs:legs.map(l=>({from:l.from,to:l.to,date:l.date})),prefAirlines:S.prefAirlines,includeLCC:!!S.includeLCC,cabin:S.cabin,
     cheaperByUSD:S.cheaperByUSD,bufBeforeHours:S.bufBefore,bufAfterHours:S.bufAfter,minConnHours:S.minConn,shabbatWindows:wins,airportTz:tz,updatedAt:new Date().toISOString()};
 }
-function watchSub(){ metaSub();
+function watchSub(){
   if(watchUnsub){ watchUnsub(); watchUnsub=null; } watchDoc=null;
   if(!db) return; try{ watchUnsub=db.doc("watch/"+trip.id).onSnapshot(s=>{ watchDoc=s.exists?s.data():null; renderWatch(); },()=>{}); }catch(e){}
 }
@@ -1356,7 +1235,6 @@ function renderWatch(){
   const legs=computeLegs(trip).filter(l=>l.date);
   if(!legs.length){ el.innerHTML=`<div class="note">Add dates to watch this trip for new options.</div>`; return; }
   const on=watchDoc&&watchDoc.enabled; const last=watchDoc&&watchDoc.last;
-  if(false&&on&&alertsMeta&&alertsMeta.paused){ el.innerHTML=`<div class="banner" style="margin-top:10px;margin-bottom:0"><b>🔕 Trip alerts are paused</b> — they switch off by themselves when there are no active trips, so they don't use your Claude plan for nothing.<br>To resume for this trip: in Claude open <b>Scheduled tasks → “Trip alerts – live flight check”</b> and turn it on (or ask Claude: “resume my trip alerts”). The first check then saves a baseline.</div>`; return; }
   el.innerHTML=`<div class="sh" style="margin-top:10px"><div class="ic" style="background:${on?"#127a46":"#5b6b85"};color:#fff">${on?"🔔":"🔕"}</div><div style="flex:1"><b>${on?"Watching this trip · every 3 hours":"Trip alerts"}</b>
     <small>${on?(last?`Last check ${esc(last.checkedAtLocal||last.checkedAt||"")}: ${esc(last.summary||"")}`:"First check runs within 3 hours."):"Starts automatically when you search flights for this trip: live Kiwi.com check every 3 hours for new Shabbat-safe options, sold-out or price-jump signals, sent to your phone. Stops when the trip is deleted or its dates pass."}</small></div>
     ${on?"":`<button class="btn small primary" data-act="watch">Watch</button>`}</div>
