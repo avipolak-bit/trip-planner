@@ -198,8 +198,8 @@ input.datepick{cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xml
       <p class="hint" style="margin-top:8px">Shabbat and Yom Tov times follow Chabad.org's method — candles 18 min before sunset (or the city's Chabad custom), Shabbat ends when the sun is 8.5° below the horizon — calculated for the city centre, with Israel vs. diaspora holiday days handled. Expect ±1 min vs. Chabad.org; tap “Chabad.org” on any time to see their official listing. AI-suggested flights are based on typical schedules — always confirm the final itinerary and price via the booking links.</p>
     </form>
     <div class="card standalone-only hidden" style="max-width:640px;margin-top:16px">
-      <h2>Cloud helper (sync + AI)</h2>
-      <p class="hint">Optional. Adds AI hotel search and phone ↔ PC sync to the GitHub version. Use your free Cloudflare Worker from the setup guide. Stored only on this device.</p>
+      <h2>Cloud helper (live flights + sync)</h2>
+      <p class="hint">Your free Cloudflare helper from the setup steps. It brings live Kiwi.com flights into this page and syncs your trips between phone and PC. Stored only on this device.</p>
       <label>Worker URL</label><input id="cUrl" placeholder="https://trip-helper.yourname.workers.dev" autocomplete="off">
       <label>Access key</label><input id="cKey" type="password" autocomplete="off">
       <div class="btns"><button type="button" class="btn primary small" id="cSave">Save &amp; connect</button></div>
@@ -844,7 +844,7 @@ async function runAuto(){
   if(autoRunning){ autoAgain=true; return; } autoRunning=true; const T=trip; T.auto=T.auto||{};
   const here=()=>trip===T; const st_=k=>T.legs[k]||(T.legs[k]={});
   try{
-    const legs=computeLegs(T); const useLive=!STANDALONE&&mcp&&kiwiState!=="server_not_connected"&&kiwiState!=="blocked_by_policy";
+    const legs=computeLegs(T); const useLive=!!mcp&&kiwiState!=="server_not_connected"&&kiwiState!=="blocked_by_policy";
     for(let i=0;i<legs.length;i++){ const leg=legs[i]; const st=st_(leg.key); if(!useLive) break;
       if(st.live||st.ai||T.auto[leg.key]) continue; T.auto[leg.key]=true;
       if(here()) autoStatus(`<span class="spinner" style="border-color:#1f4fd133;border-top-color:#1f4fd1"></span> Finding flights ${i+1}/${legs.length}: ${esc(leg.from)} → ${esc(leg.to)}, ${dayLabel(leg.date)}…`);
@@ -972,7 +972,7 @@ function renderLegs(){
       <div class="constraints">${consHtml}</div>
       <div class="btns">
 
-        ${!STANDALONE&&mcp?`<button class="btn primary" data-act="live" data-leg="${esc(leg.key)}" ${b?"disabled":""}>${b==="live"?`<span class="spinner"></span> Searching Kiwi.com…`:st.live?"↻ Refresh live flights":"⚡ Search live flights"}</button>`:""}
+        ${mcp?`<button class="btn primary" data-act="live" data-leg="${esc(leg.key)}" ${b?"disabled":""}>${b==="live"?`<span class="spinner"></span> Searching Kiwi.com…`:st.live?"↻ Refresh live flights":"⚡ Search live flights"}</button>`:""}
         
         <button class="btn" data-act="togglemanual" data-leg="${esc(leg.key)}">＋ Check a specific flight</button>
       </div>
@@ -1177,13 +1177,19 @@ async function workerFetch(path,opts={}){
   return r.status===204?null:r.json();
 }
 function workerSample(){ const f=async(prompt)=>{ const j=await workerFetch("/ai",{method:"POST",body:JSON.stringify({prompt})}); return {text:j.text||""}; }; return f; }
+function workerMcp(){ // same interface as Claude's connector bridge, backed by the cloud helper
+  return { describeTool:async()=>({}), callTool:async(server,tool,input)=>{
+    if(server!==KIWI_SERVER){ const e=new Error("Not available in this copy"); e.code="server_not_connected"; throw e; }
+    try{ const j=await workerFetch("/flights",{method:"POST",body:JSON.stringify(input)}); return {payload:j}; }
+    catch(err){ const e=new Error(err.message||String(err)); if(/wrong access key|origin not allowed|not set up/i.test(e.message)) e.code="server_not_connected"; throw e; } } };
+}
 function workerCollection(){
   return {
     doc:id=>({ set:v=>workerFetch("/docs/"+encodeURIComponent(id),{method:"PUT",body:JSON.stringify(v)}), delete:()=>workerFetch("/docs/"+encodeURIComponent(id),{method:"DELETE"}) }),
     onSnapshot(cb,err){ let stop=false; const pull=async()=>{ if(stop) return; try{ const j=await workerFetch("/docs"); const docs=Object.entries(j.docs||{}).map(([id,v])=>({id,data:()=>v})); cb({docs,metadata:{hasPendingWrites:false,fromCache:false}}); }catch(e){ if(err) err(e); stop=true; } }; pull(); const t=setInterval(()=>document.visibilityState==="visible"&&pull(),60000); return ()=>{ stop=true; clearInterval(t); }; }
   };
 }
-function noSearchNote(){ return `<div class="banner info" style="margin:10px 0 0">Live flight lists appear in the planner's web address on claude.ai (<b>claude.ai/artifact/RBbubNn86yixxZpiv7NbrK</b> — opens in any browser when you're signed in to Claude). This copy has no free live flight source, so only the search links below work here.</div>`; }
+function noSearchNote(){ return `<div class="banner info" style="margin:10px 0 0">To see live flights here, connect your free cloud helper once: <b>Settings → Cloud helper</b> (address + access key from the setup steps).</div>`; }
 
 // ---------- Kiwi.com live search (Claude version, via the viewer's connector) ----------
 const KIWI_SERVER="Kiwi.com", KIWI_TOOL="search-flight";
@@ -1212,7 +1218,7 @@ async function kiwiSearchDirect(leg){
   kiwiState="ok"; opts.splice(40);
   return {options:opts,caveat:"Live Kiwi.com results — prices can change until booked.",at:Date.now(),live:true};
 }
-function kiwiErrorText(){ return kiwiState==="server_not_connected"||kiwiState==="selection_required"?"Add the Kiwi.com connector in Claude (Settings → Connectors) to use live search.":kiwiState==="needs_reauth"?"Reconnect Kiwi.com in Claude Settings → Connectors.":kiwiState==="not_in_manifest"?"Kiwi.com access was declined for this page — allow it to use live search.":kiwiState==="blocked_by_policy"?"Your organization blocks the Kiwi.com connector.":"Live search unavailable right now."; }
+function kiwiErrorText(){ return STANDALONE?"Live flights need the cloud helper — check Settings → Cloud helper (address and access key).":kiwiState==="server_not_connected"||kiwiState==="selection_required"?"Add the Kiwi.com connector in Claude (Settings → Connectors) to use live search.":kiwiState==="needs_reauth"?"Reconnect Kiwi.com in Claude Settings → Connectors.":kiwiState==="not_in_manifest"?"Kiwi.com access was declined for this page — allow it to use live search.":kiwiState==="blocked_by_policy"?"Your organization blocks the Kiwi.com connector.":"Live search unavailable right now."; }
 
 // ---------- trip watch (alerts run by a scheduled Claude task) ----------
 let watchUnsub=null, watchDoc=null;
@@ -1295,12 +1301,12 @@ async function initCaps(){
 function initStandalone(){
   document.querySelectorAll(".standalone-only").forEach(e=>e.classList.remove("hidden"));
   const c=conn(); $("#cUrl").value=c.url||""; $("#cKey").value=c.key||"";
-  if(c.url&&c.key){ sample=workerSample(); col=workerCollection();
+  if(c.url&&c.key){ sample=workerSample(); col=workerCollection(); mcp=workerMcp();
     col.onSnapshot(snap=>{ const remote=[]; snap.docs.forEach(d=>{ const v=d.data(); if(v&&v.kind==="trip"&&v.trip) remote.push(v.trip); if(v&&v.kind==="settings"&&v.settings){ S={...DEFAULT_SETTINGS,...v.settings}; syncExtra(); } });
       const map=new Map(trips.map(t=>[t.id,t])); remote.forEach(r=>{ const l=map.get(r.id); if(!l||(r.savedAt||0)>=(l.savedAt||0)) map.set(r.id,r); }); trips=[...map.values()]; purgeExpired(); if(view==="trips") renderTrips(); },
       err=>{ col=null; toast(String(err.message||err)); });
   } else { purgeExpired(); }
-  renderLegs(); renderHotels();
+  renderLegs(); renderHotels(); if(mcp) scheduleAuto();
 }
 document.addEventListener("click",e=>{ if(e.target.id==="cSave"){ setConn({url:$("#cUrl").value.trim(),key:$("#cKey").value.trim()}); toast("Saved — reloading…"); setTimeout(()=>location.reload(),600); } });
 boot();
