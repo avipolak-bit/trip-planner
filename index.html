@@ -191,13 +191,14 @@ details.times{margin-top:8px}details.times summary{cursor:pointer;font-size:13px
       <h2>Travel preferences</h2>
       <div class="row"><div><label>Home airport</label><input id="sHome" list="apts"></div><div><label>Cabin</label><select id="sCabin"><option>Economy</option><option>Premium Economy</option><option>Business</option></select></div></div>
       <label>Preferred airlines (IATA codes)</label><input id="sPref" placeholder="LY, TG">
+      <label>Skip these airlines (IATA codes)</label><input id="sSkip" placeholder="TK, MS, GF, QR, RJ, SV"><p class="hint" style="margin-top:6px">Flights on any of these airlines are left out. Codes: TK Turkish · MS EgyptAir · GF Gulf Air · QR Qatar · RJ Royal Jordanian · SV Saudia.</p>
       <p class="hint" style="margin-top:6px">Preferred airlines are always shown first. Others appear only if they're quicker (1h+) or cheaper by at least the amount below — and quicker always ranks above cheaper. "Quicker" = total time from take-off at the origin to landing at the final destination, including layovers.</p>
       <label>Count as cheaper when it saves at least (USD)</label><input id="sCheaper" type="number" min="0" step="10">
       <h3>Low-cost airlines</h3>
       <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--ink);letter-spacing:0"><input type="checkbox" id="sLCC" style="width:auto"> Include low-cost / no-frills airlines (Wizz, Ryanair, easyJet, Israir, Arkia, AirAsia…)</label>
       <div class="row"><div><label>I usually travel with</label><select id="sBags"><option value="personal">Small personal item only</option><option value="cabin">Cabin trolley</option><option value="checked">Cabin trolley + checked bag</option></select></div><div><label>Min self-transfer (hours)</label><input id="sSelfT" type="number" step="0.5" min="0"></div></div>
       <p class="hint" style="margin-top:6px">Low-cost fares are compared including estimated bag & seat fees for your luggage. Self-transfers (separate tickets) need extra time to re-check in.</p>
-      <label>Minimum comfortable connection (hours)</label><input id="sConn" type="number" step="0.5" min="0">
+      <div class="row"><div><label>Min connection (hours)</label><input id="sConn" type="number" step="0.5" min="0"></div><div><label>Max connection (hours)</label><input id="sMaxConn" type="number" step="0.5" min="1"></div></div><p class="hint" style="margin-top:6px">Flights with a connection longer than the maximum are left out of the results.</p>
       <label>Hotel search radius (km from destination / meeting address)</label><input id="sRadius" type="number" min="1" max="300" step="5">
       <h3>Gett transfers</h3>
       <div class="row3"><div><label>At TLV _ h before</label><input id="sTLV" type="number" step="0.5" min="0"></div><div><label>Abroad _ h before</label><input id="sAbroad" type="number" step="0.5" min="0"></div><div><label>Drive (min)</label><input id="sDrive" type="number" min="0"></div></div>
@@ -519,7 +520,7 @@ function rankOptions(options,S,analyzer){
 </script>
 <script>// ===== App =====
 const HILTON_BRANDS=["Waldorf Astoria","LXR","Conrad","NoMad","Signia","Canopy","Hilton","Curio Collection","Graduate","DoubleTree","Tapestry Collection","Embassy Suites","Tempo","Outset Collection","Motto","Hilton Garden Inn","UnderGraduate","Hampton","Tru","Spark","Homewood Suites","Home2 Suites","LivSmart Studios","Apartment Collection","Select by Hilton","Hilton Grand Vacations"];
-const DEFAULT_SETTINGS={hotelRadiusKm:100,cheaperByUSD:50,includeLCC:true,bags:"cabin",selfTransferMin:3,airportTLV:3,airportAbroad:2.5,driveMin:45,chabadLocal:true,home:"TLV",prefAirlines:["LY","TG"],bufBefore:3,bufAfter:3,minConn:1.5,longConn:6,candleMin:18,havdalah:"8.5",cabin:"Economy",brands:HILTON_BRANDS.slice(),extraAirports:{}};
+const DEFAULT_SETTINGS={hotelRadiusKm:100,cheaperByUSD:50,includeLCC:true,bags:"cabin",selfTransferMin:3,airportTLV:3,airportAbroad:2.5,driveMin:45,chabadLocal:true,home:"TLV",prefAirlines:["LY","TG"],bufBefore:3,bufAfter:3,minConn:1.5,longConn:6,maxConn:6,skipAirlines:["TK","MS","GF","QR","RJ","SV"],candleMin:18,havdalah:"8.5",cabin:"Economy",brands:HILTON_BRANDS.slice(),extraAirports:{}};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const enc=encodeURIComponent;
@@ -686,7 +687,9 @@ function timeOk(o,leg){ if(!hasTimes(leg)) return true; const g=o.segments||[]; 
   return inWin(String(g[0].dep||"").slice(11,16),leg.dep[0],leg.dep[1]) && inWin(String(g[g.length-1].arr||"").slice(11,16),leg.arr[0],leg.arr[1]); }
 function winText(w,word){ const [a,b]=w||[]; return a&&b?`${word} ${a}–${b}`:a?`${word} after ${a}`:b?`${word} by ${b}`:""; }
 function timesText(leg){ return [winText(leg.dep,"Take off"),winText(leg.arr,"Land")].filter(Boolean).join(" · "); }
-function usable(leg,all){ return all.filter(o=>(S.includeLCC||!analyzeOption(o,S).lcc)&&timeOk(o,leg)); }
+function connOk(o){ const mx=+S.maxConn||0; if(!mx) return true; const a=analyzeOption(o,S); return !(a.conns||[]).some(c=>c.h>mx+1e-6); }
+function skipOk(o){ const sk=S.skipAirlines||[]; return !sk.length||!(o.segments||[]).some(g=>sk.includes(String(g.carrier||String(g.flight||"").slice(0,2)).toUpperCase())); }
+function usable(leg,all){ return all.filter(o=>skipOk(o)&&(S.includeLCC||!analyzeOption(o,S).lcc)&&timeOk(o,leg)&&connOk(o)); }
 function bestFor(leg){ // top-ranked Shabbat-safe live option for a leg
   const st=trip.legs[leg.key]; if(!st||!st.live) return null; const all=st.live.options;
   const r=rankOptions(usable(leg,all),S); const x=r.pref[0]||r.highlighted[0]||r.hidden[0]; return x?{x,idx:all.indexOf(x.o)}:null;
@@ -1047,8 +1050,9 @@ function renderLegs(){
     const consHtml=twHtml+cons.map(c=>`<span class="pill ${c.kind==="before"?"bad":"warn"}" title="${esc(c.detail||"")}">${esc(c.text)}</span>`).join("") || `<span class="pill ok">No Shabbat constraints on this date</span>`;
     let results="";
     if(st.live){ const all=st.live.options; const use=usable(leg,all); const r=rankOptions(use,S); const tag=x=>all.indexOf(x.o);
-      const offTime=all.filter(o=>(S.includeLCC||!analyzeOption(o,S).lcc)&&!timeOk(o,leg)).length;
+      const base=all.filter(o=>S.includeLCC||!analyzeOption(o,S).lcc); const offTime=base.filter(o=>!timeOk(o,leg)).length; const longC=base.filter(o=>timeOk(o,leg)&&!connOk(o)).length;
       results+=`<h3>⚡ Live from Kiwi.com <span class="meta" style="font-weight:500">· ${fmtAgo(st.live.at)}</span></h3>`;
+      if(longC) results+=`<div class="note">⏱ ${longC} flight${longC>1?"s":""} with a connection over ${S.maxConn}h hidden.</div>`;
       if(offTime) results+=`<div class="note">⏰ ${offTime} flight${offTime>1?"s":""} outside your preferred times hidden (${esc(timesText(leg))}).</div>`;
       if(!r.pref.length&&!r.highlighted.length&&!r.hidden.length) results+=`<div class="empty">No Shabbat-safe live results${hasTimes(leg)?" within your preferred times":""} for this date.</div>`;
       results+=r.pref.map(x=>optCard(x,leg,st,tag(x),"live")).join("")+r.highlighted.map(x=>optCard(x,leg,st,tag(x),"live")).join("");
@@ -1156,11 +1160,11 @@ function renderTrips(){
 }
 function renderBrandChips(){ const el=$("#brandChips"); if(el) el.innerHTML=HILTON_BRANDS.map(b=>`<button type="button" class="chip ${S.brands.includes(b)?"on":""}" data-act="brand" data-b="${esc(b)}">${esc(b)}</button>`).join(""); }
 function renderSettings(){ renderBrandChips();
-  $("#sHome").value=aptLabel(S.home); $("#sPref").value=S.prefAirlines.join(", "); $("#sBufB").value=S.bufBefore; $("#sBufA").value=S.bufAfter; $("#sConn").value=S.minConn; $("#sCandle").value=S.candleMin; $("#sHav").value=S.havdalah; $("#sCabin").value=S.cabin; $("#sChabadLocal").checked=S.chabadLocal!==false; $("#sTLV").value=S.airportTLV; $("#sAbroad").value=S.airportAbroad; $("#sDrive").value=S.driveMin; $("#sLCC").checked=!!S.includeLCC; $("#sBags").value=S.bags; $("#sSelfT").value=S.selfTransferMin; $("#sCheaper").value=S.cheaperByUSD; $("#sRadius").value=S.hotelRadiusKm;
+  $("#sHome").value=aptLabel(S.home); $("#sPref").value=S.prefAirlines.join(", "); $("#sSkip").value=(S.skipAirlines||[]).join(", "); $("#sBufB").value=S.bufBefore; $("#sBufA").value=S.bufAfter; $("#sConn").value=S.minConn; $("#sMaxConn").value=S.maxConn??6; $("#sCandle").value=S.candleMin; $("#sHav").value=S.havdalah; $("#sCabin").value=S.cabin; $("#sChabadLocal").checked=S.chabadLocal!==false; $("#sTLV").value=S.airportTLV; $("#sAbroad").value=S.airportAbroad; $("#sDrive").value=S.driveMin; $("#sLCC").checked=!!S.includeLCC; $("#sBags").value=S.bags; $("#sSelfT").value=S.selfTransferMin; $("#sCheaper").value=S.cheaperByUSD; $("#sRadius").value=S.hotelRadiusKm;
 }
 function readSettings(){
-  S.home=codeOf($("#sHome").value)||"TLV"; S.prefAirlines=$("#sPref").value.split(/[,\s]+/).map(x=>x.trim().toUpperCase()).filter(x=>/^[A-Z0-9]{2}$/.test(x)); if(!S.prefAirlines.length) S.prefAirlines=["LY","TG"];
-  S.bufBefore=Math.max(0,+$("#sBufB").value||0); S.bufAfter=Math.max(0,+$("#sBufA").value||0); S.minConn=Math.max(0,+$("#sConn").value||0); S.candleMin=Math.max(0,+$("#sCandle").value||18); S.havdalah=$("#sHav").value; S.cabin=$("#sCabin").value; S.chabadLocal=$("#sChabadLocal").checked; S.airportTLV=Math.max(0,+$("#sTLV").value||3); S.airportAbroad=Math.max(0,+$("#sAbroad").value||2.5); S.driveMin=Math.max(0,+$("#sDrive").value||45); S.includeLCC=$("#sLCC").checked; S.bags=$("#sBags").value; S.selfTransferMin=Math.max(0,+$("#sSelfT").value||3); S.cheaperByUSD=Math.max(0,Math.round(+$("#sCheaper").value||0)); S.hotelRadiusKm=Math.min(300,Math.max(1,Math.round(+$("#sRadius").value||100)));
+  S.home=codeOf($("#sHome").value)||"TLV"; S.prefAirlines=$("#sPref").value.split(/[,\s]+/).map(x=>x.trim().toUpperCase()).filter(x=>/^[A-Z0-9]{2}$/.test(x)); S.skipAirlines=$("#sSkip").value.toUpperCase().split(/[^A-Z0-9]+/).filter(x=>x.length===2); if(!S.prefAirlines.length) S.prefAirlines=["LY","TG"];
+  S.bufBefore=Math.max(0,+$("#sBufB").value||0); S.bufAfter=Math.max(0,+$("#sBufA").value||0); S.minConn=Math.max(0,+$("#sConn").value||0); S.maxConn=Math.max(1,+$("#sMaxConn").value||6); S.candleMin=Math.max(0,+$("#sCandle").value||18); S.havdalah=$("#sHav").value; S.cabin=$("#sCabin").value; S.chabadLocal=$("#sChabadLocal").checked; S.airportTLV=Math.max(0,+$("#sTLV").value||3); S.airportAbroad=Math.max(0,+$("#sAbroad").value||2.5); S.driveMin=Math.max(0,+$("#sDrive").value||45); S.includeLCC=$("#sLCC").checked; S.bags=$("#sBags").value; S.selfTransferMin=Math.max(0,+$("#sSelfT").value||3); S.cheaperByUSD=Math.max(0,Math.round(+$("#sCheaper").value||0)); S.hotelRadiusKm=Math.min(300,Math.max(1,Math.round(+$("#sRadius").value||100)));
 }
 let _setT;
 function saveSettings(){ clearTimeout(_setT); _setT=setTimeout(async()=>{ try{ localStorage.setItem("btp.settings",JSON.stringify(S)); }catch{} if(col){ try{ await col.doc("settings").set({kind:"settings",settings:S}); }catch(e){} } },600); }
@@ -1301,7 +1305,8 @@ function kiwiToOption(it){
 }
 async function kiwiSearchDirect(leg){
   if(!mcp) throw new Error("KIWI_server_not_connected");
-  const ex=S.includeLCC?{}:{exclude_airlines:"W6,W4,W9,FR,U2,6H,IZ,BZ,G9,PC,FD,AK,VJ,TR,6E,5J"};
+  const exl=[...(S.includeLCC?[]:["W6","W4","W9","FR","U2","6H","IZ","BZ","G9","PC","FD","AK","VJ","TR","6E","5J"]),...(S.skipAirlines||[])];
+  const ex=exl.length?{exclude_airlines:[...new Set(exl)].join(",")}:{};
   const base={flyFrom:leg.from,flyTo:leg.to,departureDate:ddmmyyyy(leg.date),currency:"USD",cabinClass:({"Economy":"M","Premium Economy":"W","Business":"C"})[S.cabin]||"M",adults:1};
   const calls=[{...base,select_airlines:S.prefAirlines.join(","),sort:"duration"},{...base,sort:"duration",...ex},{...base,sort:"price",...ex}];
   const seen=new Set(), opts=[]; let lastErr=null, ok=0;
