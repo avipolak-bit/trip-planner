@@ -151,6 +151,7 @@ details.times{margin-top:8px}details.times summary{cursor:pointer;font-size:13px
 .ltrack input[type=range],.ltrack input[type=range]:focus{background:transparent!important;border:0!important;outline:none!important;box-shadow:none!important;padding:0!important;border-radius:0}
 .ltrack input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px #1f4fd155}
 .lticks span{white-space:nowrap}
+.stopsel{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}.stopsel>span{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-right:4px}
 </style>
 </head>
 <body>
@@ -575,7 +576,7 @@ function aptLabel(c){ const a=apt(c); return a?`${c} — ${a.city}`:(c||""); }
 function computeLegs(t){
   migrateTrip(t);
   const fl=t.flights.filter(f=>f.from&&f.to);
-  const legs=fl.map((f,i)=>({from:f.from,to:f.to,date:f.date,ret:i===fl.length-1&&fl.length>1&&f.to===t.flights[0].from,dep:[f.depFrom||"",f.depTo||""],arr:[f.arrFrom||"",f.arrTo||""]}));
+  const legs=fl.map((f,i)=>({from:f.from,to:f.to,date:f.date,ret:i===fl.length-1&&fl.length>1&&f.to===t.flights[0].from,dep:[f.depFrom||"",f.depTo||""],arr:[f.arrFrom||"",f.arrTo||""],maxStops:f.stops===""||f.stops==null?null:+f.stops}));
   legs.forEach(l=>l.key=`${l.from}-${l.to}-${l.date}`);
   return legs;
 }
@@ -693,7 +694,9 @@ function timesText(leg){ return [winText(leg.dep,"Take off"),winText(leg.arr,"La
 function connOk(o){ const mc=+S.maxConn||0, ms=+S.maxSelfT||0; const a=analyzeOption(o,S); return !(a.conns||[]).some(c=>{ const mx=c.self?ms:mc; return mx&&c.h>mx+1e-6; }); }
 function connLimitText(){ return `Max connection ${S.maxConn||6}h · max self-transfer ${S.maxSelfT||6}h`; }
 function skipOk(o){ const sk=S.skipAirlines||[]; return !sk.length||!(o.segments||[]).some(g=>sk.includes(String(g.carrier||String(g.flight||"").slice(0,2)).toUpperCase())); }
-function usable(leg,all){ return all.filter(o=>skipOk(o)&&(S.includeLCC||!analyzeOption(o,S).lcc)&&timeOk(o,leg)&&connOk(o)); }
+function stopsOk(o,leg){ return leg.maxStops==null||((o.segments||[]).length-1)<=leg.maxStops; }
+function stopsText(n){ return n===0?"Direct only":n===1?"Direct or 1 stop":"Any number of stops"; }
+function usable(leg,all){ return all.filter(o=>skipOk(o)&&stopsOk(o,leg)&&(S.includeLCC||!analyzeOption(o,S).lcc)&&timeOk(o,leg)&&connOk(o)); }
 function bestFor(leg){ // top-ranked Shabbat-safe live option for a leg
   const st=trip.legs[leg.key]; if(!st||!st.live) return null; const all=st.live.options;
   const r=rankOptions(usable(leg,all),S); const x=r.pref[0]||r.highlighted[0]||r.hidden[0]; return x?{x,idx:all.indexOf(x.o)}:null;
@@ -703,6 +706,11 @@ let tripPkgs=[];
 function legCands(leg){ const st=trip.legs[leg.key]; if(!st||!st.live) return [];
   const all=st.live.options; const r=rankOptions(usable(leg,all),S);
   let c=[...r.pref,...r.highlighted]; if(!c.length) c=r.hidden; return c; }
+function legDiag(leg){ const st=trip.legs[leg.key]; const all=(st&&st.live&&st.live.options)||[]; if(!all.length) return "Kiwi.com returned no flights for this date";
+  let sk=0,lc=0,tm=0,cn=0,sh=0,st2=0;
+  all.forEach(o=>{ if(!stopsOk(o,leg)) st2++; else if(!skipOk(o)) sk++; else if(!(S.includeLCC||!analyzeOption(o,S).lcc)) lc++; else if(!timeOk(o,leg)) tm++; else if(!connOk(o)) cn++; else { const a=analyzeOption(o,S); if(!a.ok||a.shabbat==="violation") sh++; } });
+  const p=[]; if(sh) p.push(`${sh} clash with Shabbat/holiday`); if(cn) p.push(`${cn} with connections over the max`); if(tm) p.push(`${tm} outside your preferred times`); if(sk) p.push(`${sk} on skipped airlines`); if(lc) p.push(`${lc} low-cost (turned off)`); if(st2) p.push(`${st2} with too many stops`);
+  return `${all.length} found, none fit: ${p.join(", ")}`; }
 function buildPackages(legs){
   const C=legs.map(l=>legCands(l)); if(C.some(c=>!c.length)) return [];
   // keep the search small: shrink each leg's candidate list until the combinations fit
@@ -740,7 +748,9 @@ function multiCard(legs){
     return i===0?`<div class="pkg">${head}${body}</div>`:`<details class="group pkg"><summary>${head}</summary>${body}</details>`; }).join("");
   let main;
   if(tripPkgs.length) main=`<h3>Whole-trip options (${tripPkgs.length})</h3>${pkgHtml}<div class="note" style="margin-top:6px">Separate tickets per flight · totals include every flight · tap an option to see its flights.</div>`;
-  else if(have) main=`<div class="note" style="margin-top:6px">${have===legs.length?"No combination of the live flights connects in time — see each flight below.":`${have}/${legs.length} flights found so far…`}</div>`;
+  else if(have){ const miss=legs.filter(l=>!legCands(l).length);
+    const lines=miss.map(l=>{ const st=trip.legs[l.key]; if(busy[l.key]||!st||!st.live) return `<li><b>${esc(l.from)}→${esc(l.to)}</b> ${dayLabel(l.date)} — still searching…</li>`; return `<li><b>${esc(l.from)}→${esc(l.to)}</b> ${dayLabel(l.date)} — ${esc(legDiag(l))}</li>`; }).join("");
+    main=`<div class="note" style="margin-top:6px">${miss.length?`No complete trip yet — ${miss.length} flight${miss.length>1?"s have":" has"} no option that fits your rules:<ul style="margin:6px 0 0 18px;padding:0">${lines}</ul><div style="margin-top:6px">Try moving that flight a day (e.g. after Shabbat), or raise Max connection in Settings.</div>`:"No combination of the live flights connects in time — see each flight below."}</div>`; }
   else main=!mcp?noSearchNote():`<div class="note" style="margin-top:6px">Each flight is searched live on Kiwi.com as soon as the trip is filled in.</div>`;
   return `<div class="card leg multi">
     <div class="leghead"><div class="route">Whole trip · ${legs.length>2?"multi-city":"round trip"} <span>${esc(route)}</span></div><span class="pill">${legs.length} flights</span></div>
@@ -910,7 +920,9 @@ async function runAuto(){
   try{
     const legs=computeLegs(T); const useLive=!!mcp&&kiwiState!=="server_not_connected"&&kiwiState!=="blocked_by_policy";
     for(let i=0;i<legs.length;i++){ const leg=legs[i]; const st=st_(leg.key); if(!useLive) break;
-      if(st.live||st.ai||T.auto[leg.key]) continue; T.auto[leg.key]=true;
+      if(st.live&&(!(st.live.v>=2)||(st.live.ms??null)!==(leg.maxStops??null))){ delete T.auto[leg.key]; } // older search without the new filters → search again
+      else if(st.live||st.ai||T.auto[leg.key]) continue;
+      T.auto[leg.key]=true;
       if(here()) autoStatus(`<span class="spinner" style="border-color:#1f4fd133;border-top-color:#1f4fd1"></span> Finding flights ${i+1}/${legs.length}: ${esc(leg.from)} → ${esc(leg.to)}, ${dayLabel(leg.date)}…`);
       busy[leg.key]=useLive?"live":"ai"; if(here()) renderLegs();
       try{ st.live=await kiwiSearchDirect(leg); }
@@ -967,6 +979,7 @@ function renderForm(){
     <div class="row3 frow"><div><label>From</label><input list="apts" data-f="from" value="${esc(aptLabel(f.from))}" placeholder="TLV" autocomplete="off"></div>
      <div><label>To</label><input list="apts" data-f="to" value="${esc(aptLabel(f.to))}" placeholder="e.g. BKK" autocomplete="off"></div>
      <div><label>Date</label><input type="text" readonly class="datepick" placeholder="Pick a date" data-f="date" data-value="${esc(f.date)}" value="${esc(dateText(f.date))}"></div></div>
+    <div class="stopsel"><span>Stops</span>${[["","Any"],["0","Direct"],["1","Up to 1 stop"]].map(([v,t])=>`<button type="button" class="chip ${String(f.stops??"")===v?"on":""}" data-act="stops" data-i="${i}" data-v="${v}">${t}</button>`).join("")}</div>
     <details class="times" ${f.depFrom||f.depTo||f.arrFrom||f.arrTo?"open":""}><summary>⏰ Preferred take-off & landing times <span class="meta">(optional, local time)</span></summary>
      ${ladder("dep","Take off",f.depFrom,f.depTo)}${ladder("arr","Land",f.arrFrom,f.arrTo)}</details>
    </div>`).join("");
@@ -1050,7 +1063,7 @@ function renderLegs(){
     if(!A||!B||!leg.date) return `<div class="card"><div class="leghead"><div class="route">${esc(leg.from)} → ${esc(leg.to)}</div></div><div class="empty">${!leg.date?"Set the travel date for this leg.":"Unknown airport — pick one from the list."}</div></div>`;
     const cons=legConstraints(leg);
     const dow=weekday(leg.date);
-    const twHtml=`<span class="pill gray">⏱ ${esc(connLimitText())}</span>`+(hasTimes(leg)?`<span class="pill gray">⏰ ${esc(timesText(leg))}</span>`:"");
+    const twHtml=(leg.maxStops!=null?`<span class="pill gray">✈ ${stopsText(leg.maxStops)}</span>`:"")+`<span class="pill gray">⏱ ${esc(connLimitText())}</span>`+(hasTimes(leg)?`<span class="pill gray">⏰ ${esc(timesText(leg))}</span>`:"");
     const consHtml=twHtml+cons.map(c=>`<span class="pill ${c.kind==="before"?"bad":"warn"}" title="${esc(c.detail||"")}">${esc(c.text)}</span>`).join("") || `<span class="pill ok">No Shabbat constraints on this date</span>`;
     let results="";
     if(st.live){ const all=st.live.options; const use=usable(leg,all); const r=rankOptions(use,S); const tag=x=>all.indexOf(x.o);
@@ -1223,6 +1236,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.tab){ show(b.dataset.tab); return; }
   const act=b.dataset.act, key=b.dataset.leg;
   const leg=key?computeLegs(trip).find(l=>l.key===key):null;
+  if(act==="stops"){ readForm(); const f=trip.flights[+b.dataset.i]; if(f){ f.stops=b.dataset.v; b.parentNode.querySelectorAll(".chip").forEach(c=>c.classList.toggle("on",c===b)); onFormChange(); } return; }
   if(act==="gohome"){ readForm(); const F=trip.flights, home=F[0]?.from||S.home, f=F[+b.dataset.i]; if(f){ f.to=home; deriveTrip(trip); renderForm(); renderPlan(); onFormChange(); } }
   if(act==="addflight"){ readForm(); const F=trip.flights, last=F[F.length-1], home=F[0]?.from||S.home;
     if(F.length>=2 && last && last.to===home){ // keep the flight home last: insert the new stop before it
@@ -1312,7 +1326,12 @@ async function kiwiSearchDirect(leg){
   const exl=[...(S.includeLCC?[]:["W6","W4","W9","FR","U2","6H","IZ","BZ","G9","PC","FD","AK","VJ","TR","6E","5J"]),...(S.skipAirlines||[])];
   const ex=exl.length?{exclude_airlines:[...new Set(exl)].join(",")}:{};
   const base={flyFrom:leg.from,flyTo:leg.to,departureDate:ddmmyyyy(leg.date),currency:"USD",cabinClass:({"Economy":"M","Premium Economy":"W","Business":"C"})[S.cabin]||"M",adults:1};
+  const maxLay=Math.ceil(Math.max(+S.maxConn||6,+S.maxSelfT||6)); base.stopover_to=maxLay; if(leg.maxStops!=null) base.max_sector_stopovers=leg.maxStops; // don't waste results on long layovers
   const calls=[{...base,select_airlines:S.prefAirlines.join(","),sort:"duration"},{...base,sort:"duration",...ex},{...base,sort:"price",...ex}];
+  // on a day when Shabbat / Yom Tov ends, also ask specifically for flights leaving after it ends (+ buffer)
+  const A=apt(leg.from), after=legConstraints(leg).filter(c=>c.kind==="after").map(c=>c.utc).sort((a,b)=>b-a)[0];
+  if(after&&A){ const lp=new Intl.DateTimeFormat("en-CA",{timeZone:A.tz,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",hourCycle:"h23"}).formatToParts(new Date(after)); const g=t=>lp.find(x=>x.type===t)?.value;
+    if(`${g("year")}-${g("month")}-${g("day")}`===leg.date){ const h=+g("hour"); if(h>0&&h<=23){ calls.push({...base,select_airlines:S.prefAirlines.join(","),sort:"duration",dtime_from:h},{...base,sort:"duration",dtime_from:h,...ex}); } } }
   const seen=new Set(), opts=[]; let lastErr=null, ok=0;
   // first call alone (it may need the viewer's one-time consent), then the rest in parallel
   const run=async input=>{ try{ const r=await mcp.callTool(KIWI_SERVER,KIWI_TOOL,input); ok++; return (r.payload&&r.payload.itineraries)||[]; }
@@ -1320,8 +1339,8 @@ async function kiwiSearchDirect(leg){
   const first=await run(calls[0]); const rest=await Promise.all(calls.slice(1).map(run));
   [first,...rest].forEach(its=>its.forEach(it=>{ const o=kiwiToOption(it); const k=o.segments.map(g=>g.flight+g.dep).join("+"); if(o.segments.length&&!seen.has(k)){ seen.add(k); opts.push(o); } }));
   if(!ok&&lastErr) throw lastErr;
-  kiwiState="ok"; opts.splice(40);
-  return {options:opts,caveat:"Live Kiwi.com results — prices can change until booked.",at:Date.now(),live:true};
+  kiwiState="ok"; opts.splice(60);
+  return {options:opts,caveat:"Live Kiwi.com results — prices can change until booked.",at:Date.now(),live:true,v:2,ms:leg.maxStops??null};
 }
 function kiwiErrorText(){ return STANDALONE?"Live flights need the cloud helper — check Settings → Cloud helper (address and access key).":kiwiState==="server_not_connected"||kiwiState==="selection_required"?"Add the Kiwi.com connector in Claude (Settings → Connectors) to use live search.":kiwiState==="needs_reauth"?"Reconnect Kiwi.com in Claude Settings → Connectors.":kiwiState==="not_in_manifest"?"Kiwi.com access was declined for this page — allow it to use live search.":kiwiState==="blocked_by_policy"?"Your organization blocks the Kiwi.com connector.":"Live search unavailable right now."; }
 
