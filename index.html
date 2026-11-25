@@ -26,7 +26,7 @@ textarea{min-height:90px;resize:vertical}
 .btn.ghost{border-color:transparent;background:transparent;color:var(--brand);padding:8px 10px}.btn.small{font-size:13px;padding:7px 10px}.btn.danger{color:var(--bad)}
 .btn:disabled{opacity:.55;cursor:default}.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .stop{border:1px dashed #c9d3e3;border-radius:12px;padding:10px 12px;margin-top:12px;background:#fafbfe}
-.stop .top{display:flex;align-items:center;justify-content:space-between}.stop .num{font-weight:700;font-size:13px;color:var(--brand)}
+.stop .top{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}.stop .top .num{margin-right:auto}.stop .num{font-weight:700;font-size:13px;color:var(--brand)}
 .pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--brand2);color:var(--brand);white-space:nowrap}
 .pill.ok{background:var(--okbg);color:var(--ok)}.pill.warn{background:var(--warnbg);color:var(--warn)}.pill.bad{background:var(--badbg);color:var(--bad)}.pill.gray{background:#eef1f6;color:var(--muted)}.pill.gold{background:#fbf3d9;color:var(--gold)}
 .sh-list{display:flex;flex-direction:column;gap:8px}
@@ -168,7 +168,6 @@ details.times{margin-top:8px}details.times summary{cursor:pointer;font-size:13px
       <div class="grid sticky">
         <form class="card" id="tripForm" autocomplete="off">
           <h2>Trip</h2>
-          <p class="hint">Enter every flight of the trip — where from, where to and the date. As soon as all flights are filled in, the planner finds flights and Hilton hotels automatically.</p>
           <label>Trip name</label><input id="tripName" placeholder="e.g. Bangkok customer visit">
           <div id="flights"></div>
           <div class="btns"><button type="button" class="btn small" data-act="addflight">＋ Add another flight</button><button type="button" class="btn small" id="addReturn" data-act="addreturn">＋ Add flight home</button></div>
@@ -944,6 +943,13 @@ function ladderSync(lad,changed){ const A=lad.querySelector('[data-lad="a"]'), B
   A.style.zIndex=a>1300?5:3; return [a,b]; }
 function ladderRead(lad){ const a=+lad.querySelector('[data-lad="a"]').value, b=+lad.querySelector('[data-lad="b"]').value; return a<=0&&b>=1440?["",""]:[a>0?toHHMM(a):"",b<1440?toHHMM(b):""]; }
 document.addEventListener("input",e=>{ const lad=e.target.closest&&e.target.closest(".ladder"); if(lad) ladderSync(lad,e.target); });
+function homeBtn(){ // "Return home" on the last flight whenever it doesn't already end at home
+  const F=trip.flights, i=F.length-1, home=F[0]?.from||S.home, want=i>=1&&F[i].to!==home;
+  const top=document.querySelector(`#flights .flight[data-i="${i}"] .top`);
+  document.querySelectorAll('[data-act="gohome"]').forEach(x=>{ if(!want||x.parentNode!==top||x.dataset.home!==home) x.remove(); });
+  if(!want||!top||top.querySelector('[data-act="gohome"]')) return;
+  const bt=document.createElement("button"); bt.type="button"; bt.className="btn small"; bt.dataset.act="gohome"; bt.dataset.i=i; bt.dataset.home=home; bt.textContent="🏠 Return home"; bt.title=`Make this flight go home to ${home}`;
+  top.querySelector(".num").after(bt); }
 function renderForm(){
   const t=trip; migrateTrip(t);
   $("#tripName").value=t.name||"";
@@ -955,9 +961,9 @@ function renderForm(){
      <div><label>To</label><input list="apts" data-f="to" value="${esc(aptLabel(f.to))}" placeholder="e.g. BKK" autocomplete="off"></div>
      <div><label>Date</label><input type="text" readonly class="datepick" placeholder="Pick a date" data-f="date" data-value="${esc(f.date)}" value="${esc(dateText(f.date))}"></div></div>
     <details class="times" ${f.depFrom||f.depTo||f.arrFrom||f.arrTo?"open":""}><summary>⏰ Preferred take-off & landing times <span class="meta">(optional, local time)</span></summary>
-     ${ladder("dep","Take off",f.depFrom,f.depTo)}${ladder("arr","Land",f.arrFrom,f.arrTo)}
-     <p class="hint" style="margin:4px 0 0">Drag the two handles on each 24-hour bar. Flights outside the blue part are hidden. Full bar = any time. Times are local at each airport.</p></details>
+     ${ladder("dep","Take off",f.depFrom,f.depTo)}${ladder("arr","Land",f.arrFrom,f.arrTo)}</details>
    </div>`).join("");
+  homeBtn();
   $("#addReturn").classList.toggle("hidden",!last||!last.to||last.to===home);
   $("#addReturn").textContent=`＋ Add flight home to ${home}`;
 }
@@ -969,7 +975,7 @@ function readForm(){
   deriveTrip(trip);
 }
 async function onFormChange(e){
-  readForm(); dirty=true;
+  readForm(); dirty=true; homeBtn();
   const el=e?.target;
   if(el && el.dataset.f==="to"){ // next flight usually leaves from where this one lands
     const i=+el.closest(".flight").dataset.i; const nx=trip.flights[i+1]; if(nx && !nx.from && trip.flights[i].to){ nx.from=trip.flights[i].to; renderForm(); }
@@ -1209,6 +1215,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.tab){ show(b.dataset.tab); return; }
   const act=b.dataset.act, key=b.dataset.leg;
   const leg=key?computeLegs(trip).find(l=>l.key===key):null;
+  if(act==="gohome"){ readForm(); const F=trip.flights, home=F[0]?.from||S.home, f=F[+b.dataset.i]; if(f){ f.to=home; deriveTrip(trip); renderForm(); renderPlan(); onFormChange(); } }
   if(act==="addflight"){ readForm(); const F=trip.flights, last=F[F.length-1], home=F[0]?.from||S.home;
     if(F.length>=2 && last && last.to===home){ // keep the flight home last: insert the new stop before it
       F.splice(F.length-1,0,{from:last.from||F[F.length-2]?.to||"",to:"",date:""}); last.from=""; }
