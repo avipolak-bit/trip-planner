@@ -868,13 +868,15 @@ function bookingRows(o,leg){
   rows.push({name:"Issta",tag:"Israeli agency",url:"https://www.issta.co.il/",note:"Hebrew support"});
   return rows;
 }
-function bookingList(o,leg,open){
-  const rows=bookingRows(o,leg);
-  const html=rows.map(r=>`<div class="prov"><div><b>${esc(r.name)}</b> <span class="pill ${r.tag==="Live price"?"ok":r.tag==="Airline"?"gold":"gray"}">${esc(r.tag)}</span><div class="meta">${esc(r.note||"")}</div></div>
+function bookingList(o,leg,open){ // cheapest known price on top; other sites tucked away
+  const rows=bookingRows(o,leg); const num=r=>{ const m=String(r.price||"").replace(/[^0-9.]/g,""); return m?+m:Infinity; };
+  const priced=rows.filter(r=>num(r)<Infinity).sort((a,b)=>num(a)-num(b)); const best=priced[0];
+  const row=r=>`<div class="prov"><div><b>${esc(r.name)}</b> <span class="pill ${r.tag==="Live price"?"ok":r.tag==="Airline"?"gold":"gray"}">${esc(r.tag)}</span><div class="meta">${esc(r.note||"")}</div></div>
     <div class="pprice">${r.price?esc(r.price):`<span class="meta">Check price</span>`}</div>
-    <a class="gobtn" target="_blank" rel="noopener" href="${esc(r.url)}">Go to site →</a></div>`).join("");
-  return `<details class="group booking" ${open?"open":""}><summary>Where to book · ${rows.length} sites</summary><div class="provs">${html}</div>
-    <div class="note">Only Kiwi.com's price comes live into the planner; other sites show their price when you open them.</div></details>`;
+    <a class="gobtn" target="_blank" rel="noopener" href="${esc(r.url)}">Go to site →</a></div>`;
+  const rest=rows.filter(r=>r!==best);
+  return `<div class="provs bestprov">${best?row({...best,note:"Cheapest price found · "+(best.note||"")}):""}</div>
+    ${rest.length?`<details class="group booking" ${open&&!best?"open":""}><summary>Compare on ${rest.length} other site${rest.length>1?"s":""}</summary><div class="provs">${rest.map(row).join("")}</div></details>`:""}`;
 }
 
 // Extra research tools for a specific itinerary (no public price APIs exist for these, so they're links)
@@ -1094,7 +1096,7 @@ function renderForm(){
      <div><label>To</label><input list="apts" data-f="to" value="${esc(aptLabel(f.to))}" placeholder="e.g. BKK" autocomplete="off"></div>
      <div><label>Date</label><input type="text" readonly class="datepick" placeholder="Pick a date" data-f="date" data-value="${esc(f.date)}" value="${esc(dateText(f.date))}"></div></div>
     <div class="stopsel"><span>Stops</span>${[["","Any"],["0","Direct"],["1","Up to 1 stop"]].map(([v,t])=>`<button type="button" class="chip ${String(f.stops??"")===v?"on":""}" data-act="stops" data-i="${i}" data-v="${v}">${t}</button>`).join("")}</div>
-    <details class="times" ${f.depFrom||f.depTo||f.arrFrom||f.arrTo?"open":""}><summary>⏰ Preferred take-off & landing times <span class="meta">(optional, local time)</span></summary>
+    <details class="times" ${f.depFrom||f.depTo||f.arrFrom||f.arrTo?"open":""}><summary>⏰ Preferred take-off & landing times</summary>
      ${ladder("dep","Take off",f.depFrom,f.depTo)}${ladder("arr","Land",f.arrFrom,f.arrTo)}</details>
    </div>`).join("");
   homeBtn();
