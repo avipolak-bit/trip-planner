@@ -226,6 +226,7 @@ details.times{margin-top:8px}details.times summary{cursor:pointer;font-size:13px
       <label>Worker URL</label><input id="cUrl" placeholder="https://trip-helper.yourname.workers.dev" autocomplete="off">
       <label>Access key</label><input id="cKey" type="password" autocomplete="off">
       <div class="btns"><button type="button" class="btn primary small" id="cSave">Save &amp; connect</button></div>
+      <p class="hint" id="adbUsed" style="margin-top:6px"></p>
     </div>
   </section>
 </main>
@@ -725,28 +726,59 @@ function legDiag(leg){ const st=trip.legs[leg.key]; const all=(st&&st.live&&st.l
   all.forEach(o=>{ if(!stopsOk(o,leg)) st2++; else if(!skipOk(o)) sk++; else if(!(S.includeLCC||!analyzeOption(o,S).lcc)) lc++; else if(!timeOk(o,leg)) tm++; else if(!connOk(o)) cn++; else { const a=analyzeOption(o,S); if(!a.ok||a.shabbat==="violation") sh++; } });
   const p=[]; if(sh) p.push(`${sh} clash with Shabbat/holiday`); if(cn) p.push(`${cn} with connections over the max`); if(tm) p.push(`${tm} outside your preferred times`); if(sk) p.push(`${sk} on skipped airlines`); if(lc) p.push(`${lc} low-cost (turned off)`); if(st2) p.push(`${st2} with too many stops`);
   return `${all.length} found, none fit: ${p.join(", ")}`; }
+// ---------- single round-trip ticket (A→B, B→A): one Kiwi search with a return date ----------
+function isRoundTrip(legs){ return legs.length===2&&legs[0].from===legs[1].to&&legs[0].to===legs[1].from&&legs[0].date&&legs[1].date; }
+function rtSig(legs){ return legs.map(l=>l.key+"|"+(l.maxStops??"")).join(";")+"|"+(S.skipAirlines||[]).join(",")+"|"+S.includeLCC+"|"+S.cabin; }
+async function kiwiRoundTrip(legs){
+  const ex=[...(S.includeLCC?[]:["W6","W4","W9","FR","U2","6H","IZ","BZ","G9","PC","FD","AK","VJ","TR","6E","5J"]),...(S.skipAirlines||[])];
+  const base={flyFrom:legs[0].from,flyTo:legs[0].to,departureDate:ddmmyyyy(legs[0].date),returnDate:ddmmyyyy(legs[1].date),currency:"USD",cabinClass:({"Economy":"M","Premium Economy":"W","Business":"C"})[S.cabin]||"M",adults:1,
+    stopover_to:Math.ceil(Math.max(+S.maxConn||6,+S.maxSelfT||6))};
+  if(legs[0].maxStops!=null&&legs[0].maxStops===legs[1].maxStops) base.max_sector_stopovers=legs[0].maxStops;
+  const exl=ex.length?{exclude_airlines:[...new Set(ex)].join(",")}:{};
+  const calls=[{...base,select_airlines:S.prefAirlines.join(","),sort:"duration"},{...base,sort:"price",...exl},{...base,sort:"duration",...exl}];
+  const seen=new Set(), opts=[];
+  const run=async input=>{ try{ const r=await mcp.callTool(KIWI_SERVER,KIWI_TOOL,input); return (r.payload&&r.payload.itineraries)||[]; }catch(e){ return []; } };
+  const res=await Promise.all(calls.map(run));
+  res.flat().forEach(it=>{ if(!it.inbound||typeof it.price!=="number") return; const out=kiwiToOption(it), inn=kiwiToOption({...it,outbound:it.inbound});
+    const k=[...out.segments,...inn.segments].map(g=>g.flight+g.dep).join("+"); if(!out.segments.length||!inn.segments.length||seen.has(k)) return; seen.add(k);
+    const url=out.bookingUrl; const half={low:it.price/2,high:it.price/2};
+    const mk=o=>({...o,priceUSD:half,bookingUrl:"",rtTotal:it.price,rtUrl:url,notes:`Part of one round-trip ticket ($${Math.round(it.price).toLocaleString()} total)`+(o.notes?" · "+o.notes.split(" · ").slice(1).join(" · "):"")});
+    opts.push({price:it.price,url,out:mk(out),in:mk(inn)}); });
+  return {options:opts.slice(0,60),at:Date.now(),sig:rtSig(legs)};
+}
+function rtPackages(legs){
+  if(!isRoundTrip(legs)||!trip.rt||trip.rt.sig!==rtSig(legs)) return [];
+  const gap=(S.minConn||0)*3600000, P=[];
+  for(const r of trip.rt.options){ const xs=[[legs[0],r.out],[legs[1],r.in]].map(([l,o])=>{ if(!usable(l,[o]).length) return null; const q=rankOptions([o],S); return [...q.pref,...q.highlighted,...q.hidden][0]||null; });
+    if(xs.some(x=>!x)||xs[1].a.depU<xs[0].a.arrU+gap) continue;
+    P.push({legs:xs,price:r.price,priced:true,hours:xs[0].a.totalH+xs[1].a.totalH,score:xs[0].score+xs[1].score,pref:xs.every(x=>x.a.preferred==="all"),sig:xs.map(x=>JSON.stringify(x.o.segments)).join("|")+"|rt",rt:{price:r.price,url:r.url}}); }
+  return P;
+}
 function buildPackages(legs){
-  const C=legs.map(l=>legCands(l)); if(C.some(c=>!c.length)) return [];
+  const RT=rtPackages(legs);
+  const C=legs.map(l=>legCands(l)); if(C.some(c=>!c.length)&&!RT.length) return [];
   // keep the search small: shrink each leg's candidate list until the combinations fit
   let k=8; while(k>2 && C.reduce((n,c)=>n*Math.min(k,c.length),1)>6000) k--;
   const CC=C.map(c=>c.slice(0,k)); const gap=(S.minConn||0)*3600000; const out=[];
   const rec=(i,pick)=>{ if(i===CC.length){ out.push(pick.slice()); return; }
     for(const x of CC[i]){ const prev=pick[i-1]; if(prev && x.a.depU < prev.a.arrU+gap) continue; pick.push(x); rec(i+1,pick); pick.pop(); } };
-  rec(0,[]); if(!out.length) return [];
+  if(!C.some(c=>!c.length)) rec(0,[]); if(!out.length&&!RT.length) return [];
   const tot=c=>{ let price=0, priced=true, hours=0, score=0; c.forEach(x=>{ const p=priceMid(x.o); if(p) price+=p; else priced=false; hours+=x.a.totalH||0; score+=x.score||0; });
     return {legs:c, price, priced, hours, score, pref:c.every(x=>x.a.preferred==="all"), sig:c.map(x=>JSON.stringify(x.o.segments)).join("|")}; };
-  const P=out.map(tot); const seen=new Set(); const res=[];
+  const P=[...out.map(tot),...RT]; const seen=new Set(); const res=[];
   const add=(label,p)=>{ if(!p||seen.has(p.sig)) return; seen.add(p.sig); res.push({...p,label}); };
   const byScore=[...P].sort((a,b)=>a.score-b.score);
   add("Recommended",byScore[0]);
   add("Quickest",[...P].sort((a,b)=>a.hours-b.hours||a.price-b.price)[0]);
   add("Cheapest",[...P].filter(p=>p.priced).sort((a,b)=>a.price-b.price||a.hours-b.hours)[0]);
   add("All "+(S.prefAirlines||[]).join("/"),[...P].filter(p=>p.pref).sort((a,b)=>a.score-b.score)[0]);
+  add("Cheapest round-trip ticket",[...RT].sort((a,b)=>a.price-b.price||a.hours-b.hours)[0]);
+  add("Best round-trip ticket",[...RT].sort((a,b)=>a.score-b.score)[0]);
   for(const p of byScore){ if(res.length>=6) break; add("Alternative",p); }
   return res;
 }
 function pkgRows(p){ return p.legs.map(x=>{ const o=x.o,a=x.a,pr=normP(o.priceUSD); const f=o.segments[0], l=o.segments[o.segments.length-1];
-  return `<div class="it"><b>${esc(f.from)}→${esc(l.to)}</b><span>${esc(o.segments.map(s=>s.flight).join(" + "))} · ${fmtDT(a.depU,apt(f.from).tz)} → ${fmtDT(a.arrU,apt(l.to).tz)} · ${fmtH(a.totalH)}${pr?` · $${Math.round(pr.low||pr.high).toLocaleString()}`:""}${a.shabbat==="tight"?" ⚠":""}</span></div>`; }).join(""); }
+  return `<div class="it"><b>${esc(f.from)}→${esc(l.to)}</b><span>${esc(o.segments.map(s=>s.flight).join(" + "))} · ${fmtDT(a.depU,apt(f.from).tz)} → ${fmtDT(a.arrU,apt(l.to).tz)} · ${fmtH(a.totalH)}${p.rt?"":pr?` · $${Math.round(pr.low||pr.high).toLocaleString()}`:""}${a.shabbat==="tight"?" ⚠":""}</span></div>`; }).join("")+(p.rt?`<div class="note">🎫 One round-trip ticket for both flights · $${Math.round(p.rt.price).toLocaleString()} total${p.rt.url?` · <a target="_blank" rel="noopener" href="${esc(p.rt.url)}">Book on Kiwi.com ↗</a>`:""}</div>`:""); }
 function multiCard(legs){
   if(legs.length<2 || legs.some(l=>!l.date||!apt(l.from)||!apt(l.to))) return "";
   const route=[legs[0].from,...legs.map(l=>l.to)].join(" → ");
@@ -757,11 +789,11 @@ function multiCard(legs){
     if(Math.abs(dh)>=0.1) d.push(dh>0?`${fmtH(dh)} quicker`:`${fmtH(-dh)} slower`); if(p.priced&&ref.priced&&Math.abs(dp)>=1) d.push(dp<0?`$${Math.round(-dp).toLocaleString()} cheaper`:`+$${Math.round(dp).toLocaleString()}`);
     return d.length?` · <span class="meta">${d.join(", ")} vs recommended</span>`:""; };
   const pkgHtml=tripPkgs.map((p,i)=>{ const sel=p.sig===chosenSig;
-    const head=`<b>${esc(p.label)}</b> · ${p.priced?`$${Math.round(p.price).toLocaleString()}`:"price n/a"} · ${fmtH(p.hours)} travel · ${esc([...new Set(p.legs.flatMap(x=>x.o.segments.map(g=>g.carrier||String(g.flight||"").slice(0,2))))].join("/"))}${p.pref?" ✓":""}${cmp(p)}${sel?" · ✓ selected":""}`;
+    const head=`<b>${esc(p.label)}</b>${p.rt&&!/round-trip/.test(p.label)?" 🎫":""} · ${p.priced?`$${Math.round(p.price).toLocaleString()}`:"price n/a"} · ${fmtH(p.hours)} travel · ${esc([...new Set(p.legs.flatMap(x=>x.o.segments.map(g=>g.carrier||String(g.flight||"").slice(0,2))))].join("/"))}${p.pref?" ✓":""}${cmp(p)}${sel?" · ✓ selected":""}`;
     const body=`<div class="summary" style="margin-top:6px">${pkgRows(p)}</div><div class="btns"><button class="btn ${i===0?"primary":""} small" data-act="pickpkg" data-p="${i}">${sel?"✓ Selected":`Select these ${p.legs.length} flights`}</button></div>`;
     return i===0?`<div class="pkg">${head}${body}</div>`:`<details class="group pkg"><summary>${head}</summary>${body}</details>`; }).join("");
   let main;
-  if(tripPkgs.length) main=`<h3>Whole-trip options (${tripPkgs.length})</h3>${pkgHtml}<div class="note" style="margin-top:6px">Separate tickets per flight · totals include every flight · tap an option to see its flights.</div>`;
+  if(tripPkgs.length) main=`<h3>Whole-trip options (${tripPkgs.length})</h3>${pkgHtml}<div class="note" style="margin-top:6px">Totals include every flight · 🎫 = one round-trip ticket, otherwise separate tickets per flight · tap an option to see its flights.</div>`;
   else if(have){ const miss=legs.filter(l=>!legCands(l).length);
     const lines=miss.map(l=>{ const st=trip.legs[l.key]; if(busy[l.key]||!st||!st.live) return `<li><b>${esc(l.from)}→${esc(l.to)}</b> ${dayLabel(l.date)} — still searching…</li>`; return `<li><b>${esc(l.from)}→${esc(l.to)}</b> ${dayLabel(l.date)} — ${esc(legDiag(l))}</li>`; }).join("");
     main=`<div class="note" style="margin-top:6px">${miss.length?`No complete trip yet — ${miss.length} flight${miss.length>1?"s have":" has"} no option that fits your rules:<ul style="margin:6px 0 0 18px;padding:0">${lines}</ul><div style="margin-top:6px">Try moving that flight a day (e.g. after Shabbat), or raise Max connection in Settings.</div>`:"No combination of the live flights connects in time — see each flight below."}</div>`; }
@@ -814,6 +846,7 @@ function bookingRows(o,leg){
   const segs=o.segments||[]; const d=(segs[0]?.dep||leg.date||"").slice(0,10); const f=segs[0]?.from||leg.from, t=segs[segs.length-1]?.to||leg.to;
   const p=normP(o.priceUSD); const price=p&&(p.low||p.high)?Math.round(p.low||p.high):null;
   const rows=[];
+  if(o.rtUrl) rows.push({name:"Kiwi.com · round-trip ticket",tag:"Live price",price:`$${Math.round(o.rtTotal).toLocaleString()}`,url:o.rtUrl,note:"One ticket covering both flights"});
   if(o.bookingUrl) rows.push({name:"Kiwi.com",tag:"Live price",price:price!=null?`$${price.toLocaleString()}`:"",url:o.bookingUrl,note:"Price from this search"});
   const carriers=[...new Set(segs.map(s=>(s.carrier||(s.flight||"").slice(0,2)).toUpperCase()))];
   carriers.forEach(c=>{ const a=AIRLINE_SITES[c]; if(a) rows.push({name:a[0],tag:"Airline",url:a[1],note:carriers.length>1?"Books its own flights only":"Book direct, earn miles"}); });
@@ -840,35 +873,52 @@ function itaRouting(o){ return (o.segments||[]).map(s=>(s.flight||"").replace(/\
 const SEATMAPS={"AQ":"9-air","AN":"advanced-air","A3":"aegean-airlines","EI":"aer-lingus","5E":"aero","N2":"aero-contractors","8G":"aero-dili","RF":"aero-k","M0":"aero-mongolia","4A":"atsa","SU":"aeroflot","XZ":"aeroitalia","KS":"aeroitalia-regional","AR":"aerolineas-arg","S0":"aerolineas-sosa","AM":"aeromexico","5D":"aeromexico-connect","6G":"aeroregional","V5":"aerovias-dap","ZV":"aerus","AW":"africa-world","J7":"afrijet","8U":"afriqiyah-airways","AH":"air-algerie","6I":"air-alsie","G9":"air-arabia","3L":"air-arabia-abu-dhabi","4P":"air-arabia-dammam","E5":"air-arabia-egypt","3O":"air-arabia-maroc","KC":"air-astana","UU":"air-austral","BP":"air-botswana","2J":"air-burkina","BX":"air-busan","SM":"air-cairo","TY":"air-caledonie","K6":"air-cambodia","AC":"air-canada","RV":"air-canada-rouge","TX":"air-caraibes","Y2":"air-century-acsa","9H":"air-changan","3C":"air-chathams","CA":"air-china","4H":"air-congo","XK":"air-corsica","HF":"air-cote-d-ivoire","YN":"air-creebec","HD":"air-do","EN":"air-dolomiti","UX":"air-europa","X5":"air-europa-express","AF":"air-france","A5":"air-france-hop","GL":"air-greenland","GT":"air-guilin","3S":"air-guyane-express","AI":"air-india","IX":"air-india-express","LE":"air-inter-iles","3H":"air-inuit","NQ":"air-japan","IK":"air-kiribati","JS":"air-koryo","NX":"air-macau","MK":"air-mauritius","MV":"air-mediterranean","NM":"air-moana","9U":"air-moldova","4O":"air-montenegro","NZ":"air-new-zealand","PX":"air-niugini","4N":"air-north","YW":"air-nostrum","7P":"air-panama","P4":"air-peace","YP":"air-premia","GZ":"air-rarotonga","PJ":"air-saint-pierre","HC":"air-senegal","RS":"air-seoul","JU":"air-serbia","HM":"air-seychelles","PF":"air-sial","VT":"air-tahiti","TN":"air-tahiti-nui","TC":"air-tanzania","ST":"air-thanlwin","8T":"air-tindi","TS":"air-transat","A6":"air-travel","3N":"air-urga","NF":"air-vanuatu","ZW":"air-wisconsin","UM":"air-zimbabwe","AK":"airasia","KT":"airasia-cambodia","D7":"airasia-x","BT":"airbaltic","PA":"airblue","MY":"airborneo","SB":"aircalin","ED":"airexplore","E2":"airhaifa","P2":"airkenya-express","4Z":"airlink","TL":"airnorth","9L":"airtanker","I5":"aix-connect","VF":"ajet","QP":"akasa-air","AS":"alaska-airlines","AP":"albastar","DQ":"alexandria-airlines","G4":"allegiant-air","9I":"alliance-air","QQ":"alliance-airlines","UJ":"almasria-airlines","6R":"alrosa","MZ":"amakusa-airlines","8R":"amelia-international","AA":"american-airlines","NH":"ana","EH":"ana-wings","A2":"animawings","DM":"arajet","W3":"arik-air","IZ":"arkia","6A":"armenia-airways","AG":"aruba-airlines","YD":"ascend-airways","OZ":"asiana-airlines","KP":"asky-airlines","5O":"asl-airlines","RC":"atlantic-airways","5Y":"atlas-air","UI":"auric-air","GR":"aurigny-air","HZ":"aurora","OS":"austrian-airlines","XP":"avelo-airlines","YK":"avia-traffic-company","AV":"avianca","LR":"avianca-costa-rica","2K":"avianca-ecuador","TA":"avianca-el-salvador","EX":"avianca-express","X9":"avion-express","X8":"avion-express-malta","J2":"azal-azerbaijan","A4":"azimuth","S4":"azores-airlines","AD":"azul","2F":"azul-conecta","ZF":"azur-air","CJ":"ba-cityflyer","A0":"ba-euroflyer","J4":"badr-airlines","UP":"bahamasair","QH":"bamboo-airways","PG":"bangkok-airways","ID":"batik-air","OD":"batik-air-malaysia","B5":"bbn-airlines","B2":"belavia","B4":"beond","8E":"bering-air","J8":"berjaya-air","2T":"bermudair","3B":"bestfly-cabo-verde","8H":"bh-air","B3":"bhutan-airlines","BG":"biman","NT":"binter-canarias","BZ":"blue-bird-airways","OB":"boa","TF":"bra","TT":"braathens","MX":"breeze-airways","BA":"british-airways","SN":"brussels-airlines","U4":"buddha-air","LB":"bul-air","FB":"bulgaria-air","RR":"buzz","VR":"cabo-verde-airlines","MO":"calm-air","KR":"cambodia-airways","5T":"canadian-north","PM":"canaryfly","9K":"cape-air","JD":"capital-airlines","BW":"caribbean-airlines","V3":"carpatair","CX":"cathay-pacific","KX":"cayman-airways","DG":"cebgo","5J":"cebu-pacific-air","5Z":"cemair","9M":"central-mountain-air","C6":"centrum-air","GM":"chair-airlines","CE":"chalair","EU":"chengdu-airlines","CI":"china-airlines","MU":"china-eastern","G5":"china-express-airlines","CZ":"china-southern","KN":"china-united-airlines","OQ":"chongqing-airlines","QG":"citilink","WX":"cityjet","VE":"clic","CC":"cm-airlines","GY":"colorful-guizhou","C5":"commuteair","DE":"condor","LF":"contour-aviation","V0":"conviasa","CM":"copa-airlines","XC":"corendon-airlines","XR":"corendon-europe","CD":"corendon-dutch","SS":"corsair","OU":"croatia-airlines","C8":"cronos-airlines","CU":"cubana","CY":"cyprus-airways","D3":"daallo-airlines","DA":"daily-air","DN":"dan-air","DX":"dat","R6":"dat-lt","DL":"delta","4Y":"discover-airlines","3R":"divi-divi-air","SF":"domestic-airlines","DZ":"donghai-airlines","KB":"druk-air","ZE":"eastar-jet","T3":"eastern-airways","EC":"easyjet-europe","DS":"easyjet-switzerland","U2":"easyjet-uk","8J":"ecojet","WK":"edelweiss-air","MS":"egyptair","LY":"el-al","EK":"emirates","9E":"endeavor-air","E4":"enter-air","MQ":"envoy-air","RN":"eswatini-air","ET":"ethiopian-airlines","EY":"etihad-airways","YU":"euroatlantic-airways","H6":"european-air-charter","EW":"eurowings","E6":"eurowings-europe","BR":"eva-air","ZD":"ewa-air","MG":"eznis-airways","HJ":"fly-748","FN":"fastjet-zimbabwe","7V":"fedair","FJ":"fiji-airways","AY":"finnair","FY":"firefly","8D":"fitsair","F8":"flair","YS":"flightlink","8W":"fly-all-ways","IF":"fly-baghdad","XH":"fly-cham","9P":"fly-jinnah","2U":"fly-khiva","YI":"fly-oya","F3":"flyadeal","FS":"flyarystan","FO":"flybondi","BU":"flycaa","FZ":"flydubai","VP":"flyme","XY":"flynas","5F":"flyone","3F":"flyone-armenia","7Q":"flyone-asia","OE":"flyone-romania","4D":"flyyo","FH":"freebird-airlines","4F":"freedom-airline","BF":"french-bee","F9":"frontier-airlines","JH":"fuji-dream-airlines","FU":"fuzhou-airlines","GA":"garuda","4G":"gazpromavia","9D":"genghis-khan-air","A9":"georgian-airways","ZQ":"german-airways","GW":"getjet-airlines","G7":"gojet-airlines","G3":"gol","IV":"gp-aviation","YR":"grand-canyon-airlines","CN":"grand-china-air","HB":"gba","Q9":"green-africa","GF":"gulf-air","G2":"gullivair","GX":"gx-airlines","HU":"hainan-airlines","YB":"harbour-air-seaplanes","HA":"hawaiian-airlines","NS":"hebei-airlines","H3":"hello-jets","2L":"helvetic-airways","HN":"heston-airlines","5K":"hi-fly","H9":"himalaya-airlines","H7":"hisky","H4":"hisky-europe","UO":"hk-express","6L":"hac","HX":"hong-kong-airlines","QX":"horizon-air","MR":"hunnu-air","IB":"iberia","I2":"iberia-express","E9":"iberojet","6O":"iberojet-portugal","FW":"ibex-airlines","QI":"ibom-air","FI":"icelandair","F7":"ifly-airlines","EO":"ikar","6E":"indigo","QZ":"indonesia-airasia","JY":"intercaribbean","IO":"iraero","IR":"iran-air","EP":"iran-aseman","IA":"iraqi-airways","6H":"israir","AZ":"ita-airways","I8":"izhavia","XM":"j-air","JM":"jambojet","JC":"japan-air-commuter","JL":"jal","J9":"jazeera-airways","QK":"jazz-air","7C":"jeju-air","LS":"jet2-com","B6":"jetblue-airways","JA":"jetsmart","WJ":"jetsmart-argentina","J6":"jetsmart-colombia","JZ":"jetsmart-peru","JQ":"jetstar-airways","GK":"jetstar-japan","RY":"jiangxi-air","LJ":"jin-air","R5":"jordan-aviation","JR":"joy-air","XE":"jsx-air","NU":"jta","3J":"jubba-airways-ke","HO":"juneyao-air","RQ":"kam-air","KQ":"kenya-airways","KG":"key-lime-air","KL":"klm","WA":"klm-cityhopper","KM":"km-malta-airlines","KO":"komiaviatrans","KE":"korean-air","KY":"kunming-airlines","KU":"kuwait-airways","B0":"la-compagnie","W8":"la-costena","TM":"lam-mozambique","QV":"lao-airlines","QL":"laser-airlines","LA":"latam-airlines","JJ":"latam-brasil","4C":"latam-colombia","XL":"latam-ecuador","LP":"latam-peru","LW":"lauda-europe","KK":"leav-aviation","LL":"level","5L":"liat-air","GE":"lift","FC":"link-airways","JT":"lion-air","LM":"loganair","LT":"lj-air","GJ":"loong-air","LO":"lot","8L":"lucky-air","LH":"lufthansa","VL":"lufthansa-city","L8":"lulutai-airlines","L9":"lumiwings","LG":"luxair","BN":"luxwing","MD":"madagascar-airlines","W5":"mahan-air","3W":"malawi-airlines","MH":"malaysia-airlines","Q2":"maldivian","AL":"malta-air","MT":"malta-medair","AE":"mandarin-airlines","7Y":"mann-yadanarpon","NR":"manta-air","7M":"map-linhas-aereas","DI":"marabu","O8":"marathon-airlines","L6":"mauritania-airlines","4M":"mga","2M":"maya-island-air","BM":"medsky","5M":"mel-air","YV":"mesa-airlines","XN":"mexicana","OM":"miat-mongolian","ME":"mea","K7":"mingalar","8M":"myanmar-airways","UB":"myanmar-mna","MJ":"myway-airlines","IN":"nam-air","N8":"national-airlines","ON":"nauru-airlines","NO":"neos","RA":"nepal-airlines","NE":"nesma-airlines","GD":"nexus-airlines","NP":"nile-air","DD":"nok-air","N5":"nolinor-aviation","Y7":"nordstar","N4":"nordwind","N7":"norra","N0":"norse-atlantic","Z0":"norse-atlantic-uk","0E":"north-west-aircompany","DY":"norwegian","D8":"norwegian-air-sweden","BJ":"nouvelair","O9":"nova-airways","VQ":"novoair","OJ":"nyxair","BK":"okay-airways","OA":"olympic-air","WY":"oman-air","OY":"omni-air-international","OX":"one-airways","4L":"oneclick","OC":"oriental-air-bridge","OF":"overland-airways","BL":"pacific-airlines","8P":"pacific-coastal-airlines","PK":"pia","PB":"pal-airlines","2P":"pal-express","8Y":"pan-pacific-airlines","ZP":"paranair","WE":"parata-air","P6":"pascan-aviation","OP":"passionair","MM":"peach","PC":"pegasus","IP":"pelita-air","PE":"people-s","JV":"perimeter-aviation","UF":"petroleum-air","PR":"pal","Z2":"philippines-airasia","PT":"piedmont-airlines","PU":"plus-ultra","CG":"png-air","DP":"pobeda","HP":"populair","PD":"porter-airlines","NI":"portugalia","PW":"precision-air","P0":"proflight-zambia","OH":"psa-airlines","5P":"pyramids-airlines","HH":"qanot-sharq","QF":"qantas","QR":"qatar-airways","QW":"qingdao-airlines","R4":"rano-air","4S":"red-sea-airlines","WZ":"red-wings","8N":"regional-air-services","YX":"republic-airways","ZL":"rex-airlines","4T":"rise-air","RX":"riyadh-air","FV":"rossiya","RW":"royal-air","AT":"royal-air-maroc","BI":"royal-brunei","RJ":"royal-jordanian","DR":"ruili-airlines","7R":"rusline","WB":"rwandair","FR":"ryanair","RK":"ryanair-uk","S7":"s7-airlines","FA":"safair","F2":"safarilink-aviation","OV":"salamair","OL":"samoa-airways","SK":"sas","SP":"sata-air-acores","9R":"satena","SV":"saudia","S1":"saurya-airlines","DV":"scat-airlines","TR":"scoot","IS":"sepehran-airlines","ER":"serene-air","D2":"severstal-aircompany","SC":"shandong-airlines","FM":"shanghai-airlines","ZH":"shenzhen-airlines","5G":"shirak-avia","3U":"sichuan-airlines","SQ":"singapore-airlines","HK":"skippers-aviation","H2":"sky-airline","H8":"sky-peru","BQ":"sky-alps","ZA":"sky-angkor-airlines","GQ":"sky-express","R8":"sky-fru","DO":"sky-high","ML":"sky-mali","BC":"skymark-airlines","QN":"skytrans","PQ":"skyup-airlines","U5":"skyup-mt","OW":"skyward-airlines","OO":"skywest","5N":"smartavia","QS":"smartwings","6J":"solaseed-air","IE":"solomon-airlines","SZ":"somon-air","SA":"south-african-airways","9X":"southern-airways-express","WN":"southwest-airlines","2S":"southwind","SG":"spicejet","9C":"spring-airlines","IJ":"spring-japan","P8":"sprintair","UL":"srilankan-airlines","SJ":"sriwijaya-air","4R":"star-east-airlines","2I":"star-peru","7G":"starflyer","JX":"starlux","VC":"sterling-airways","SY":"sun-country-airlines","9G":"sun-phuquoc-airways","EZ":"sun-air","DK":"sunclass-airlines","SR":"sundair","XQ":"sunexpress","2R":"sunlight-air","Y8":"suparna-airlines","IU":"super-air-jet","PY":"surinam-airways","WT":"swiftair","LX":"swiss","DT":"taag-angola","5U":"tag","TI":"tailwind-airlines","TP":"tap","YQ":"tar-mexico","RO":"tarom","TD":"tbilisi-airways","FD":"thai-airasia","XJ":"thai-airasia-x","TG":"thai-airways","SL":"thai-lion-air","VZ":"thai-vietjetair","GS":"tianjin-airlines","IT":"tigerair-taiwan","ZT":"titan-airways","BV":"toki-air","C3":"trade-air","HV":"transavia","TO":"transavia-france","8B":"transnusa","IL":"trigana-air-service","TW":"trinity-airways","9N":"tropic-air","BY":"tui-airways","TB":"tui-fly-be","X3":"tui-fly-de","OR":"tui-fly-nl","6B":"tui-fly-nordic","TU":"tunisair","UG":"tunisair-express","TK":"turkish-airlines","T5":"turkmenistan-air","T9":"turpial-airlines","U8":"tus-airways","UR":"uganda-airlines","PS":"ukraine-intl","B7":"uni-air","UA":"united","UD":"ur-airlines","U6":"ural-airlines","UQ":"urumqi-air","BS":"us-bangla-airlines","UT":"utair","RT":"uvt-aero","HY":"uzbekistan-airways","VK":"valuejet","0V":"vasco","VJ":"vietjet-air","IQ":"vietjet-qazaqstan","VN":"vietnam-airlines","VU":"vietravel-airlines","VS":"virgin-atlantic","VA":"virgin-australia","VB":"viva","Y4":"volaris","Q6":"volaris-costa-rica","N3":"volaris-el-salvador","V7":"volotea","VY":"vueling","EB":"wamos-air","PN":"west-air","WV":"westair-aviation","WU":"western-air","WS":"westjet","WR":"westjet-encore","WI":"white-airways","WF":"wideroe","WM":"winair","7W":"windrose-airlines","P5":"wingo","WH":"wingo-panama","IW":"wings-air","W6":"wizz-air","5W":"wizz-air-abu-dhabi","W4":"wizz-air-malta","W9":"wizz-air-uk","2W":"world-2-fly","3P":"world-2-fly-portugal","WL":"world-atlantic-airlines","MF":"xiamenair","TV":"xizang-airlines","R3":"yakutia-airlines","YC":"yamal-airlines","IY":"yemenia","YT":"yeti-airlines","7Z":"z-air","ZN":"zambia-airways","ZG":"zipair"};
 function seatmapUrl(code){ const c=String(code||"").toUpperCase(); return SEATMAPS[c]?`https://seatmaps.com/airlines/${c.toLowerCase()}-${SEATMAPS[c]}/`:null; }
 // seat maps are only loaded when "Check seats & fares elsewhere" is opened
+const smEmbed=id=>`https://seatmaps.com/seatmaps/${id}.html?seatbar=hide&tooltip_on_hover=true&colorTheme=${matchMedia("(prefers-color-scheme: dark)").matches?"default_dark":"default"}`;
+async function acFetch(x){ // one AeroDataBox lookup per flight+date (cached in the trip and in the helper for 7 days)
+  const k=`${x.f}@${x.d}`; const have=acGet(trip,k); if(have&&have.maps) return have;
+  const r=await workerFetch("/aircraft",{method:"POST",body:JSON.stringify({flight:x.f,date:x.d,from:x.from,slug:SEATMAPS[x.c]?`${x.c.toLowerCase()}-${SEATMAPS[x.c]}`:""})});
+  if(r&&(r.model||!r.note)){ trip.aircraft=trip.aircraft||{}; trip.aircraft[k]={model:r.model||null,seatmap:r.seatmap||null,maps:r.maps||[],at:Date.now()}; adbCount(r); autosave(); return trip.aircraft[k]; }
+  return {model:null,note:r&&r.note}; }
+// seat maps load only when "Check seats & fares elsewhere" is opened; the exact aircraft's seat map is shown straight away
 document.addEventListener("toggle",e=>{ const d=e.target; if(!(d instanceof HTMLDetailsElement)||!d.open) return; const box=d.querySelector(".smbox[data-segs]"); if(!box||box.dataset.loaded) return; box.dataset.loaded="1";
   let segs=[]; try{ segs=JSON.parse(box.dataset.segs); }catch{}
-  const tabs=segs.filter(x=>seatmapUrl(x.c));
-  if(!tabs.length){ box.innerHTML=`<div class="note">No SeatMaps.com page for these airlines.</div>`; return; }
-  box.innerHTML=`<div class="smtabs">${tabs.map((x,i)=>`<button type="button" class="chip ${i?"":"on"}" data-sm="${esc(seatmapUrl(x.c))}" data-i="${i}">💺 ${esc(x.f)}${x.n?" · "+esc(x.n):""}</button>`).join("")}</div>
-    <div class="note smnote" style="margin:6px 0"></div>
-    <iframe class="smframe" src="${esc(seatmapUrl(tabs[0].c))}" title="Seat maps" referrerpolicy="no-referrer"></iframe>
-    <a class="btn small ghost" target="_blank" rel="noopener" href="${esc(seatmapUrl(tabs[0].c))}" data-smopen>Open SeatMaps.com full screen ↗</a>`;
-  const btns=[...box.querySelectorAll("[data-sm]")];
-  tabs.forEach((x,i)=>{ if(x.ac&&x.ac.seatmap) btns[i].dataset.sm=x.ac.seatmap; if(x.ac&&x.ac.model) btns[i].textContent=`💺 ${x.f} · ${x.ac.model}`; });
-  const show=i=>{ const x=tabs[i]; btns.forEach((b,j)=>b.classList.toggle("on",i===j)); const u=btns[i].dataset.sm; const f=box.querySelector(".smframe"); if(f.src!==u) f.src=u; box.querySelector("[data-smopen]").href=u;
-    box.querySelector(".smnote").textContent=x.ac&&x.ac.model?(x.ac.seatmap?`${x.f}: ${x.ac.model} (airline schedule via AeroDataBox) — seat map below. The airline may still swap planes.`:`${x.f}: ${x.ac.model} (airline schedule via AeroDataBox) — pick it on ${x.n||x.c}'s page below.`)
-      :`${x.f}: ${x.n||x.c} cabins — tap the aircraft type.${STANDALONE&&conn().url?" Select this flight to look up its exact aircraft.":""}`; };
-  box._show=show; show(0);
+  const tabs=segs.filter(x=>seatmapUrl(x.c)); if(!tabs.length){ box.innerHTML=`<div class="note">No seat map available for these airlines.</div>`; return; }
+  box.innerHTML=`<div class="smtabs">${tabs.map((x,i)=>`<button type="button" class="chip ${i?"":"on"}" data-smt="${i}">💺 ${esc(x.f)}</button>`).join("")}</div>
+    <div class="note smnote" style="margin:6px 0"></div><div class="smtabs smver"></div>
+    <iframe class="smframe" title="Seat map" referrerpolicy="no-referrer"></iframe>
+    <a class="btn small ghost" target="_blank" rel="noopener" data-smopen>Open on SeatMaps.com ↗</a>`;
+  const tbtn=[...box.querySelectorAll("[data-smt]")], frame=box.querySelector(".smframe"), note=box.querySelector(".smnote"), ver=box.querySelector(".smver"), open=box.querySelector("[data-smopen]");
+  const st=tabs.map(x=>({ac:x.ac&&x.ac.maps?x.ac:null}));
+  const setSrc=u=>{ if(frame.getAttribute("src")!==u) frame.src=u; };
+  const render=(i,v)=>{ const x=tabs[i], ac=st[i].ac; tbtn.forEach((b,j)=>b.classList.toggle("on",i===j)); box.dataset.cur=i;
+    if(ac&&ac.model) tbtn[i].textContent=`💺 ${x.f} · ${ac.model}`;
+    const maps=(ac&&ac.maps)||[];
+    if(maps.length){ v=Math.min(v||0,maps.length-1); setSrc(smEmbed(maps[v].id)); open.href=ac.seatmap;
+      ver.innerHTML=maps.length>1?maps.map((m,j)=>`<button type="button" class="chip ${j===v?"on":""}" data-smv="${j}">${esc(m.label||"Version "+(j+1))}</button>`).join(""):"";
+      note.textContent=`${x.f} · ${x.n||x.c} · ${ac.model} (airline schedule via AeroDataBox)${maps.length>1?` — ${x.n||x.c} flies ${maps.length} cabin versions of this plane; tap to switch`:""}. The airline may still swap planes.`; }
+    else { setSrc(seatmapUrl(x.c)); open.href=seatmapUrl(x.c); ver.innerHTML="";
+      note.textContent=st[i].loading?`${x.f}: finding the aircraft…`:ac&&ac.model?`${x.f}: ${ac.model} — no seat map for this plane on SeatMaps.com; showing ${x.n||x.c}'s fleet.`:st[i].err?`${x.f}: ${st[i].err} — showing ${x.n||x.c}'s fleet.`:`${x.f}: showing ${x.n||x.c}'s fleet.`; } };
+  const load=async i=>{ if(st[i].ac||st[i].loading||!(STANDALONE&&conn().url)) return; st[i].loading=true; render(i);
+    try{ const r=await acFetch(tabs[i]); if(r&&r.model!==undefined&&!r.note) st[i].ac=r; else st[i].err=r&&r.note==="AERODATABOX_KEY not set"?"aircraft lookup not set up":"aircraft not found"; }catch(err){ st[i].err="aircraft lookup failed"; }
+    st[i].loading=false; if(+box.dataset.cur===i) render(i); };
+  box._tab=i=>{ render(i); load(i); }; box._ver=v=>render(+box.dataset.cur,v);
+  box._tab(0);
 },true);
-document.addEventListener("click",e=>{ const b=e.target.closest&&e.target.closest("[data-sm]"); if(!b) return; const box=b.closest(".smbox"); if(box&&box._show) box._show(+b.dataset.i); });
-// aircraft type: looked up ONLY for flights you select (saves the free AeroDataBox quota); remembered in the trip
+document.addEventListener("click",e=>{ const t=e.target.closest&&e.target.closest("[data-smt],[data-smv]"); if(!t) return; const box=t.closest(".smbox"); if(!box) return; if(t.dataset.smt!=null) box._tab(+t.dataset.smt); else box._ver(+t.dataset.smv); });
+// aircraft type: looked up when you select a flight or open its seat map; remembered in the trip (max 7 days — AeroDataBox free plan)
 const acKey=g=>`${String(g.flight||"").replace(/\s/g,"").toUpperCase()}@${String(g.dep||"").slice(0,10)}`;
-let acBusy=new Set();
-const AC_TTL=7*86400000; // AeroDataBox free plan: keep data at most 7 days
+const AC_TTL=7*86400000;
 function acGet(T,k){ const v=((T||trip).aircraft||{})[k]; return v&&v.at&&Date.now()-v.at<AC_TTL?v:null; }
 function acPurge(T){ const A=(T||trip).aircraft; if(A) for(const k of Object.keys(A)) if(!acGet(T,k)) delete A[k]; }
+function adbCount(r){ if(r&&r.lookupsThisMonth!=null){ S.adbUsed={m:new Date().toISOString().slice(0,7),n:r.lookupsThisMonth}; saveSettings(); } }
+let acBusy=new Set();
 async function lookupAircraft(T){ T=T||trip; if(!(STANDALONE&&conn().url)) return; T.aircraft=T.aircraft||{}; acPurge(T);
   const segs=computeLegs(T).flatMap(l=>(T.legs[l.key]?.selected?.segments)||[]).filter(g=>g.flight&&g.dep);
-  const todo=[...new Map(segs.map(g=>[acKey(g),g])).values()].filter(g=>{ const k=acKey(g); return !(k in T.aircraft)&&!acBusy.has(k); });
+  const todo=[...new Map(segs.map(g=>[acKey(g),g])).values()].filter(g=>{ const k=acKey(g); return !acGet(T,k)&&!acBusy.has(k); });
   if(!todo.length) return;
   await Promise.all(todo.map(async g=>{ const k=acKey(g); acBusy.add(k); const c=(g.carrier||g.flight.slice(0,2)).toUpperCase();
     try{ const r=await workerFetch("/aircraft",{method:"POST",body:JSON.stringify({flight:String(g.flight).replace(/\s/g,"").toUpperCase(),date:String(g.dep).slice(0,10),from:g.from,slug:SEATMAPS[c]?`${c.toLowerCase()}-${SEATMAPS[c]}`:""})});
-      if(r&&(r.model||!r.note)) T.aircraft[k]={model:r.model||null,seatmap:r.seatmap||null,at:Date.now()}; }catch{}
+      if(r&&(r.model||!r.note)){ T.aircraft[k]={model:r.model||null,seatmap:r.seatmap||null,maps:r.maps||[],at:Date.now()}; adbCount(r); } }catch{}
     acBusy.delete(k); }));
   if(trip===T){ autosave(); renderLegs(); renderSummary(); } else saveTripObj(T,true);
 }
@@ -883,7 +933,7 @@ function toolLinks(o,leg){
       <a class="btn small ${on?"primary":"ghost"}" target="_blank" rel="noopener" href="https://www.expertflyer.com/seat-alerts" data-act="seatalert" data-flight="${esc(fn)}" data-date="${esc(sd)}" data-from="${esc(s.from)}" data-to="${esc(s.to)}" data-txt="${esc(det)}" title="Free ExpertFlyer alert when a window or aisle seat opens">${on?"🔔 Window/aisle alert set":"🔔 Window/aisle alert"} ${esc(fn)} ↗</a>`; }).join("");
   const hasAlert=segs.some(x=>trip.seatAlert&&trip.seatAlert.flight===(x.flight||"").replace(/\s/g,"").toUpperCase());
   return `<details class="group" style="margin-top:6px" ${hasAlert?"open":""}><summary>Check seats & fares elsewhere${hasAlert?" · 🔔 seat alert":""}</summary>
-    <div class="smbox" data-segs="${esc(JSON.stringify(segs.filter(x=>x.flight).map(x=>({c:(x.carrier||String(x.flight).slice(0,2)).toUpperCase(),f:(x.flight||"").replace(/\s/g,"").toUpperCase(),n:x.carrierName||"",ac:acGet(trip,acKey(x))}))))}"></div>
+    <div class="smbox" data-segs="${esc(JSON.stringify(segs.filter(x=>x.flight).map(x=>({c:(x.carrier||String(x.flight).slice(0,2)).toUpperCase(),f:(x.flight||"").replace(/\s/g,"").toUpperCase(),n:x.carrierName||"",d:String(x.dep||"").slice(0,10),from:x.from||"",ac:acGet(trip,acKey(x))}))))}"></div>
     <div class="links">
       ${sm}
       <a class="btn small ghost" target="_blank" rel="noopener" href="https://matrix.itasoftware.com/search">💲 Fares & rules (ITA Matrix) ↗</a>
@@ -981,6 +1031,8 @@ async function runAuto(){
       catch(err){ toast(String(err.message||"").startsWith("KIWI_")?kiwiErrorText():"Flight search for "+leg.from+"→"+leg.to+" failed: "+(err.message||err)); T.auto[leg.key]=false; }
       busy[leg.key]=null; if(here()){ renderLegs(); renderSummary(); }
     }
+    { const L=computeLegs(T); if(isRoundTrip(L)&&(!T.rt||T.rt.sig!==rtSig(L))){ if(here()) autoStatus(`<span class="spinner" style="border-color:#1f4fd133;border-top-color:#1f4fd1"></span> Checking round-trip tickets ${esc(L[0].from)} ⇄ ${esc(L[0].to)}…`);
+      try{ T.rt=await kiwiRoundTrip(L); }catch(e){} if(here()) renderLegs(); } }
     deriveTrip(T);
     const stays=hotelSource()?(T.stops||[]).filter(s=>s.need):[];
     for(let i=0;i<stays.length;i++){ const s=stays[i]; if(T.hotels[s.key]||T.auto["h:"+s.key]) continue; T.auto["h:"+s.key]=true;
@@ -1230,7 +1282,7 @@ function renderTrips(){
   $("#storeNote").textContent= col?"Trips sync to your Claude account — they're available on your phone and PC.":(STANDALONE?"Trips are stored in this browser only — set up the cloud helper in Settings to sync phone ↔ PC.":"Trips are stored in this browser only (sign in to Claude to sync across devices).");
 }
 function renderBrandChips(){ const el=$("#brandChips"); if(el) el.innerHTML=HILTON_BRANDS.map(b=>`<button type="button" class="chip ${S.brands.includes(b)?"on":""}" data-act="brand" data-b="${esc(b)}">${esc(b)}</button>`).join(""); }
-function renderSettings(){ renderBrandChips();
+function renderSettings(){ renderBrandChips(); const au=$("#adbUsed"); if(au){ const u=S.adbUsed&&S.adbUsed.m===new Date().toISOString().slice(0,7)?S.adbUsed.n:0; au.textContent=`Aircraft lookups this month: ${u} of about 200 free (AeroDataBox).`; }
   $("#sHome").value=aptLabel(S.home); $("#sPref").value=S.prefAirlines.join(", "); $("#sSkip").value=(S.skipAirlines||[]).join(", "); $("#sBufB").value=S.bufBefore; $("#sBufA").value=S.bufAfter; $("#sConn").value=S.minConn; $("#sMaxConn").value=S.maxConn??6; $("#sMaxSelfT").value=S.maxSelfT??6; $("#sCandle").value=S.candleMin; $("#sHav").value=S.havdalah; $("#sCabin").value=S.cabin; $("#sChabadLocal").checked=S.chabadLocal!==false; $("#sTLV").value=S.airportTLV; $("#sAbroad").value=S.airportAbroad; $("#sDrive").value=S.driveMin; $("#sLCC").checked=!!S.includeLCC; $("#sBags").value=S.bags; $("#sSelfT").value=S.selfTransferMin; $("#sCheaper").value=S.cheaperByUSD; $("#sRadius").value=S.hotelRadiusKm;
 }
 function readSettings(){
