@@ -645,18 +645,20 @@ function aptRaw(code){ const a=AIRPORTS[code]||EXTRA_AIRPORTS[code]||APTDB[code]
 // Real hotel data: the viewer's Booking.com connector, filtered to Hilton-family brands within the radius of the airport.
 const BOOKING_SERVER="Booking.com", BOOKING_TOOL="accommodations_search_headless";
 // Only the Hilton family brands (most specific names first)
-const BRAND_RX=[["Waldorf Astoria",/waldorf astoria/i],["LXR",/\bLXR\b/],["Conrad",/\bconrad\b/i],["NoMad",/\bnomad (hotel|london|las vegas)/i],["Signia",/signia/i],["Canopy",/canopy by hilton/i],
- ["Curio Collection",/curio collection/i],["UnderGraduate",/undergraduate/i],["Graduate",/\bgraduate (hotels?|by hilton)/i],["DoubleTree",/doubletree/i],["Tapestry Collection",/tapestry collection/i],["Embassy Suites",/embassy suites/i],
- ["Tempo",/tempo by hilton/i],["Outset Collection",/outset collection/i],["Motto",/motto by hilton/i],["Hilton Garden Inn",/hilton garden inn/i],["Hampton",/hampton (by hilton|inn)/i],["Tru",/\btru by hilton/i],["Spark",/spark by hilton/i],
- ["Homewood Suites",/homewood suites/i],["Home2 Suites",/home2 suites/i],["LivSmart Studios",/livsmart/i],["Apartment Collection",/apartment collection by hilton/i],["Select by Hilton",/select by hilton/i],
- ["Hilton Grand Vacations",/hilton grand vacations/i],["Hilton",/\bhilton\b/i]];
-const NOT_HILTON=/paris\s+hilton|hilton\s+(head|heights|street|road|st\.?|avenue|ave|inn\b(?!.*by hilton))/i; // look-alike names that aren't Hilton hotels
-function hiltonBrand(name){ if(NOT_HILTON.test(name||"")&&!/by hilton|hilton (garden|grand)/i.test(name||"")) return null; for(const [b,rx] of BRAND_RX) if(rx.test(name||"")) return b; return null; }
+// Official Hilton-family naming only (e.g. "DoubleTree by Hilton …", "…, Curio Collection by Hilton", "Conrad Manila", "Hilton Manila")
+const BRAND_RX=[["Waldorf Astoria",/\bwaldorf astoria\b/i],["LXR",/\bLXR hotels\b/i],["Conrad",/^conrad\b|\bconrad (hotel|resort)s?\b|\bby conrad\b/i],["NoMad",/\bnomad (hotel|london|las vegas)\b/i],["Signia",/\bsignia by hilton\b/i],["Canopy",/\bcanopy by hilton\b/i],
+ ["Curio Collection",/\bcurio collection by hilton\b/i],["UnderGraduate",/\bundergraduate by hilton\b/i],["Graduate",/\bgraduate by hilton\b|^graduate (?!school|student|house|hostel|inn\b)[a-z]/i],["DoubleTree",/\bdoubletree\b/i],["Tapestry Collection",/\btapestry collection by hilton\b/i],["Embassy Suites",/\bembassy suites\b/i],
+ ["Tempo",/\btempo by hilton\b/i],["Outset Collection",/\boutset collection by hilton\b/i],["Motto",/\bmotto by hilton\b/i],["Hilton Garden Inn",/\bhilton garden inn\b/i],["Hampton",/\bhampton by hilton\b|\bhampton inn\b/i],["Tru",/\btru by hilton\b/i],["Spark",/\bspark by hilton\b/i],
+ ["Homewood Suites",/\bhomewood suites\b/i],["Home2 Suites",/\bhome2 suites\b/i],["LivSmart Studios",/\blivsmart studios\b/i],["Apartment Collection",/\bapartment collection by hilton\b/i],["Select by Hilton",/\bselect by hilton\b/i],
+ ["Hilton Grand Vacations",/\bhilton grand vacations\b/i],["Hilton",/^hilton\b|\bmillennium hilton\b|\bhilton (hotel|resort|suites|residences)s?\b|\bthe hilton\b/i]];
+const NOT_HILTON=/paris\s+hilton|hilton\s+(head|heights|street|road|st\.?|avenue|ave|park|beach)\b/i; // look-alike names that aren't Hilton hotels
+function hiltonBrand(name){ name=String(name||""); if(NOT_HILTON.test(name)&&!/by hilton|hilton (garden|grand)/i.test(name)) return null; for(const [b,rx] of BRAND_RX) if(rx.test(name)) return b; return null; }
+function brandRxSource(){ return BRAND_RX.filter(([b])=>S.brands.includes(b)).map(([,rx])=>rx.source).join("|"); }
 function kmBetween(a,b,c,d){ const R=6371,toR=Math.PI/180; const x=Math.sin((c-a)*toR/2)**2+Math.cos(a*toR)*Math.cos(c*toR)*Math.sin((d-b)*toR/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
 function hotelSource(){ return !mcp?null:STANDALONE?"helper":BOOKING_SERVER; }
 async function helperHotels(stop){ // GitHub copy: cloud helper → Xotelo (TripAdvisor-based) live prices
   const A=aptRaw(stop.code)||apt(stop.code); const R=S.hotelRadiusKm||100; const nights=stayNights(stop);
-  const j=await workerFetch("/hotels",{method:"POST",body:JSON.stringify({iata:stop.code,lat:A.lat,lon:A.lon,radiusKm:R,checkin:stop.checkin,checkout:stop.leave})});
+  const j=await workerFetch("/hotels",{method:"POST",body:JSON.stringify({iata:stop.code,lat:A.lat,lon:A.lon,radiusKm:R,checkin:stop.checkin,checkout:stop.leave,brandRx:brandRxSource(),notRx:NOT_HILTON.source})});
   const results=[];
   const seenH=new Set();
   for(const h of (j&&j.hotels)||[]){ const brand=hiltonBrand(h.name); if(!brand||!S.brands.includes(brand)) continue;
