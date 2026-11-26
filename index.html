@@ -756,9 +756,11 @@ function rtPackages(legs){
   const gap=(S.minConn||0)*3600000, P=[];
   for(const r of trip.rt.options){ const xs=[[legs[0],r.out],[legs[1],r.in]].map(([l,o])=>{ if(!usable(l,[o]).length) return null; const q=rankOptions([o],S); return [...q.pref,...q.highlighted,...q.hidden][0]||null; });
     if(xs.some(x=>!x)||xs[1].a.depU<xs[0].a.arrU+gap) continue;
-    P.push({legs:xs,price:r.price,priced:true,hours:xs[0].a.totalH+xs[1].a.totalH,score:xs[0].score+xs[1].score,pref:xs.every(x=>x.a.preferred==="all"),sig:xs.map(x=>JSON.stringify(x.o.segments)).join("|")+"|rt",rt:{price:r.price,url:r.url}}); }
+    P.push({legs:xs,price:r.price,priced:true,hours:xs[0].a.totalH+xs[1].a.totalH,score:xs[0].score+xs[1].score,pref:xs.every(x=>x.a.preferred==="all"),prefN:prefN(xs),sig:xs.map(x=>JSON.stringify(x.o.segments)).join("|")+"|rt",rt:{price:r.price,url:r.url}}); }
   return P;
 }
+// how much of the trip is on preferred airlines (LY/TG): 2 per flight fully on them, 1 if partly
+function prefN(c){ return c.reduce((n,x)=>n+(x.a.preferred==="all"?2:x.a.preferred==="some"?1:0),0); }
 function buildPackages(legs){
   const RT=rtPackages(legs);
   const C=legs.map(l=>legCands(l)); if(C.some(c=>!c.length)&&!RT.length) return [];
@@ -769,13 +771,16 @@ function buildPackages(legs){
     for(const x of CC[i]){ const prev=pick[i-1]; if(prev && x.a.depU < prev.a.arrU+gap) continue; pick.push(x); rec(i+1,pick); pick.pop(); } };
   if(!C.some(c=>!c.length)) rec(0,[]); if(!out.length&&!RT.length) return [];
   const tot=c=>{ let price=0, priced=true, hours=0, score=0; c.forEach(x=>{ const p=priceMid(x.o); if(p) price+=p; else priced=false; hours+=x.a.totalH||0; score+=x.score||0; });
-    return {legs:c, price, priced, hours, score, pref:c.every(x=>x.a.preferred==="all"), sig:c.map(x=>JSON.stringify(x.o.segments)).join("|")}; };
+    return {legs:c, price, priced, hours, score, pref:c.every(x=>x.a.preferred==="all"), prefN:prefN(c), sig:c.map(x=>JSON.stringify(x.o.segments)).join("|")}; };
   const P=[...out.map(tot),...RT]; const seen=new Set(); const res=[];
   const add=(label,p)=>{ if(!p||seen.has(p.sig)) return; seen.add(p.sig); res.push({...p,label}); };
-  const byScore=[...P].sort((a,b)=>a.score-b.score);
+  // preferred airlines first: the recommendation uses as much LY/TG as the live results allow, then quickest, then cheapest
+  const byScore=[...P].sort((a,b)=>b.prefN-a.prefN||a.score-b.score);
   add("Recommended",byScore[0]);
-  add("Quickest",[...P].sort((a,b)=>a.hours-b.hours||a.price-b.price)[0]);
-  add("Cheapest",[...P].filter(p=>p.priced).sort((a,b)=>a.price-b.price||a.hours-b.hours)[0]);
+  const rec0=byScore[0], q=[...P].sort((a,b)=>a.hours-b.hours||a.price-b.price)[0], ch=[...P].filter(p=>p.priced).sort((a,b)=>a.price-b.price||a.hours-b.hours)[0];
+  // other airlines only when they're really quicker (1h+) or cheaper (by your Settings amount) than the LY/TG recommendation
+  if(q&&q.hours<=rec0.hours-1) add("Quickest",q);
+  if(ch&&rec0.priced&&ch.price<=rec0.price-(S.cheaperByUSD??50)) add("Cheapest",ch);
   add("All "+(S.prefAirlines||[]).join("/"),[...P].filter(p=>p.pref).sort((a,b)=>a.score-b.score)[0]);
   add("Cheapest round-trip ticket",[...RT].sort((a,b)=>a.price-b.price||a.hours-b.hours)[0]);
   add("Best round-trip ticket",[...RT].sort((a,b)=>a.score-b.score)[0]);
